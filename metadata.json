@@ -1,0 +1,6 @@
+{
+  "name": "Suivi des Dettes Livreur",
+  "description": "Une application mobile et simple pour aider les livreurs et vendeurs ambulants à enregistrer leurs clients, suivre les acomptes réglés et gérer les soldes restants en toute simplicité.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

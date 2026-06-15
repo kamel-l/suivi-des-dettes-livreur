@@ -96,3 +96,49 @@ export function getClientStats(
         : client.createdAt,
   };
 }
+
+export interface TransactionWithBalance extends Transaction {
+  allocatedRemainingBalance: number;
+}
+
+/**
+ * Calculates remaining balances of transactions by allocating repayments chronologically (FIFO).
+ */
+export function getTransactionsWithBalancesForClient(
+  clientTransactions: Transaction[],
+  clientRepayments: Repayment[]
+): TransactionWithBalance[] {
+  // Sort transactions by date (oldest first)
+  const sortedTx = [...clientTransactions].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  // Sort repayments by date (oldest first)
+  const sortedRepayments = [...clientRepayments].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  let repaymentsPool = sortedRepayments.reduce((sum, r) => sum + r.amount, 0);
+
+  return sortedTx.map((tx) => {
+    const initialRemaining = tx.totalAmount - tx.paidAmount;
+    if (initialRemaining <= 0) {
+      return { ...tx, allocatedRemainingBalance: 0 };
+    }
+
+    const allocation = Math.min(initialRemaining, repaymentsPool);
+    repaymentsPool -= allocation;
+
+    return {
+      ...tx,
+      allocatedRemainingBalance: initialRemaining - allocation,
+    };
+  });
+}
+
+/**
+ * Generates an SMS link for debt reminder.
+ */
+export function generateSMSLink(phone: string, message: string): string {
+  const cleanedPhone = phone.replace(/\D/g, "");
+  return `sms:${cleanedPhone}?body=${encodeURIComponent(message)}`;
+}

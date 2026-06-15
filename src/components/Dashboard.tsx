@@ -5,8 +5,8 @@
 
 import React from "react";
 import { Client, Transaction, Repayment } from "../types";
-import { formatCurrency, getClientStats } from "../utils";
-import { AlertCircle, UserCheck, TrendingUp, Sparkles, PlusCircle } from "lucide-react";
+import { formatCurrency, getClientStats, formatDate, generateWhatsAppLink, generateSMSLink, getTransactionsWithBalancesForClient } from "../utils";
+import { AlertCircle, UserCheck, TrendingUp, Sparkles, PlusCircle, MessageSquare, Smartphone, Share2 } from "lucide-react";
 import { motion } from "motion/react";
 import { Language, translations } from "../translations";
 
@@ -18,6 +18,7 @@ interface DashboardProps {
   onNavigate: (tab: string) => void;
   onSelectClient: (client: Client) => void;
   lang: Language;
+  reminderOffsetDays: number;
 }
 
 export default function Dashboard({
@@ -28,9 +29,73 @@ export default function Dashboard({
   onNavigate,
   onSelectClient,
   lang,
+  reminderOffsetDays,
 }: DashboardProps) {
   const t = translations[lang];
   const isRtl = lang === "ar";
+
+  const nowMs = Date.now();
+  const reminderMs = reminderOffsetDays * 24 * 60 * 60 * 1000;
+
+  const activeReminders = clients.flatMap((client) => {
+    const clientTx = transactions.filter((t) => t.clientId === client.id);
+    const clientRep = repayments.filter((r) => r.clientId === client.id);
+    const txWithBalances = getTransactionsWithBalancesForClient(clientTx, clientRep);
+
+    return txWithBalances
+      .filter((tx) => {
+        if (!tx.dueDate || tx.allocatedRemainingBalance <= 0) return false;
+        const dueTime = new Date(tx.dueDate).getTime();
+        return nowMs >= dueTime - reminderMs;
+      })
+      .map((tx) => {
+        const dueTime = new Date(tx.dueDate!).getTime();
+        const diffTime = dueTime - nowMs;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        let status: "upcoming" | "today" | "overdue" = "upcoming";
+        let statusText = "";
+
+        if (diffDays < 0) {
+          status = "overdue";
+          const absDays = Math.abs(diffDays);
+          statusText = t.overdueByDays.replace("{days}", absDays.toString());
+        } else if (diffDays === 0) {
+          status = "today";
+          statusText = t.dueToday;
+        } else {
+          status = "upcoming";
+          statusText = t.dueInDays.replace("{days}", diffDays.toString());
+        }
+
+        const stats = getClientStats(client, transactions, repayments);
+        const message = lang === "ar"
+          ? `السلام عليكم ${client.name}، تذكير لطيف بخصوص طلبيّة التوصيل "${tx.description}" (المبلغ المتبقي: ${formatCurrency(tx.allocatedRemainingBalance, currency)}) المستحقة بتاريخ ${formatDate(tx.dueDate!)}. يرجى التواصل معي لتسوية الحساب. شكرا لتفهمكم ويومكم طيب !`
+          : `Bonjour ${client.name}, petit rappel concernant la livraison "${tx.description}" (Reste à payer : ${formatCurrency(tx.allocatedRemainingBalance, currency)}) qui est due le ${formatDate(tx.dueDate!)}. Merci de me contacter pour le règlement. Bonne journée !`;
+
+        return {
+          client,
+          transaction: tx,
+          status,
+          statusText,
+          message,
+          whatsappUrl: generateWhatsAppLink(client.phone, message),
+          smsUrl: generateSMSLink(client.phone, message),
+        };
+      });
+  });
+
+  const handleShare = (message: string) => {
+    if (navigator.share) {
+      navigator.share({
+        title: "Relance LivreurDette",
+        text: message,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(message);
+      alert(lang === "ar" ? "تم نسخ نص التذكير في الحافظة !" : "Message de relance copié dans le presse-papiers !");
+    }
+  };
 
   // Compute overall statistics
   let totalDues = 0;
@@ -176,6 +241,101 @@ export default function Dashboard({
             <span>{t.manageClients}</span>
           </button>
         </div>
+      </div>
+
+      {/* Reminders & Due Dates list */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 text-left">
+          {t.remindersTitle}
+        </h3>
+
+        {activeReminders.length === 0 ? (
+          <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-5 text-center">
+            <p className="text-sm text-emerald-800 font-medium">
+              {t.noReminders}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {activeReminders.map(({ client, transaction, status, statusText, whatsappUrl, smsUrl, message }) => (
+              <div
+                key={transaction.id}
+                className={`bg-white border border-slate-150 hover:border-amber-200 transition rounded-xl p-4 flex flex-col text-left`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4
+                      onClick={() => onSelectClient(client)}
+                      className="font-extrabold text-sm text-slate-800 cursor-pointer hover:text-amber-600 transition"
+                    >
+                      {client.name}
+                    </h4>
+                    <p className="text-xs text-slate-400 font-mono mt-0.5">{client.phone}</p>
+                  </div>
+                  
+                  {/* Status pill badge */}
+                  <span
+                    className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase border ${
+                      status === "overdue"
+                        ? "bg-rose-50 text-rose-700 border-rose-100"
+                        : status === "today"
+                        ? "bg-amber-50 text-amber-700 border-amber-100"
+                        : "bg-blue-50 text-blue-700 border-blue-100"
+                    }`}
+                  >
+                    {statusText}
+                  </span>
+                </div>
+
+                {/* Delivery details info */}
+                <div className="mt-3 p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-xs text-slate-700 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-slate-800">{transaction.description}</span>
+                    <span className="font-extrabold font-mono text-rose-650">
+                      {formatCurrency(transaction.allocatedRemainingBalance, currency)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-slate-450 font-mono">
+                    <span>{t.delivered} : {formatDate(transaction.date)}</span>
+                    <span>{t.dueDate} : {formatDate(transaction.dueDate!)}</span>
+                  </div>
+                </div>
+
+                {/* Quick actions for sending reminder */}
+                <div className={`flex items-center gap-2 mt-3`}>
+                  {/* SMS Link */}
+                  <a
+                    href={smsUrl}
+                    className="flex-1 flex items-center justify-center space-x-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2 px-2.5 rounded-xl transition text-center"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{t.sendSmsReminder}</span>
+                  </a>
+
+                  {/* WhatsApp Link */}
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 flex items-center justify-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-2.5 rounded-xl transition text-center"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-200" />
+                    <span>{t.sendWhatsappReminder}</span>
+                  </a>
+
+                  {/* Copy / Share Button */}
+                  <button
+                    onClick={() => handleShare(message)}
+                    className="flex items-center justify-center bg-slate-105 hover:bg-slate-200 text-slate-700 p-2 rounded-xl border border-slate-200 transition cursor-pointer"
+                    title={t.shareReminder}
+                  >
+                    <Share2 className="w-4 h-4 text-slate-500" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* High Alert List (Top Debtors) */}

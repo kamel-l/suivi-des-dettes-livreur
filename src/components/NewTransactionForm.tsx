@@ -17,11 +17,13 @@ interface NewTransactionProps {
     clientId: string,
     description: string,
     totalAmount: number,
-    paidAmount: number
+    paidAmount: number,
+    dueDate?: string
   ) => void;
   currency: string;
   onSuccess: () => void;
   lang: Language;
+  defaultDueOffsetDays: number;
 }
 
 export default function NewTransactionForm({
@@ -31,6 +33,7 @@ export default function NewTransactionForm({
   currency,
   onSuccess,
   lang,
+  defaultDueOffsetDays,
 }: NewTransactionProps) {
   const t = translations[lang];
   const isRtl = lang === "ar";
@@ -43,9 +46,17 @@ export default function NewTransactionForm({
   const [newClientPhone, setNewClientPhone] = useState<string>("");
 
   // Transaction info
-  const [description, setDescription] = useState<string>("");
+  const [description, setDescription] = useState<string>( "");
   const [totalAmount, setTotalAmount] = useState<string>("");
   const [paidAmount, setPaidAmount] = useState<string>("");
+  const [dueDate, setDueDate] = useState<string>(() => {
+    if (defaultDueOffsetDays > 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + defaultDueOffsetDays);
+      return d.toISOString().split("T")[0];
+    }
+    return "";
+  });
 
   // Validation feedback
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -106,7 +117,13 @@ export default function NewTransactionForm({
 
     const defaultDesc = description.trim() || (lang === "ar" ? "توصيل سلع وبضاعة" : "Livraison de marchandises");
 
-    onAddTransaction(targetClientId, defaultDesc, calculatedTotal, calculatedPaid);
+    onAddTransaction(
+      targetClientId,
+      defaultDesc,
+      calculatedTotal,
+      calculatedPaid,
+      dueDate ? new Date(dueDate).toISOString() : undefined
+    );
 
     // Clean form states
     setSelectedClientId("");
@@ -115,6 +132,14 @@ export default function NewTransactionForm({
     setDescription("");
     setTotalAmount("");
     setPaidAmount("");
+    setDueDate(() => {
+      if (defaultDueOffsetDays > 0) {
+        const d = new Date();
+        d.setDate(d.getDate() + defaultDueOffsetDays);
+        return d.toISOString().split("T")[0];
+      }
+      return "";
+    });
     setIsNewClient(false);
 
     // On Success feedback/navigation callback
@@ -233,6 +258,47 @@ export default function NewTransactionForm({
               onChange={(e) => setDescription(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2.5 px-3 text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition"
             />
+          </div>
+
+          {/* Due date input */}
+          <div className="space-y-1.5">
+            <label htmlFor="due-date-input" className="block text-xs font-medium text-slate-600">
+              {t.optionalDueDate}
+            </label>
+            <input
+              id="due-date-input"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2 px-3 text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition"
+            />
+            {/* Helper buttons for quick select */}
+            <div className={`flex flex-wrap gap-1.5 mt-1`}>
+              {[3, 7, 14, 30].map((days) => {
+                const label = isRtl ? `+${days} ${t.daysCount}` : `+${days} j`;
+                return (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + days);
+                      setDueDate(d.toISOString().split("T")[0]);
+                    }}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] py-1 px-2.5 rounded-lg border border-slate-200 transition cursor-pointer"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setDueDate("")}
+                className="bg-rose-50 hover:bg-rose-105 text-rose-600 font-semibold text-[10px] py-1 px-2.5 rounded-lg border border-rose-100 transition cursor-pointer"
+              >
+                {t.noDueDate}
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3.5">

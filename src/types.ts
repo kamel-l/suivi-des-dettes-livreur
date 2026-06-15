@@ -19,6 +19,7 @@ export interface Transaction {
   totalAmount: number;
   paidAmount: number; // The initial deposit (acompte)
   remainingBalance: number; // totalAmount - paidAmount
+  dueDate?: string; // Optional due date (ISO string)
 }
 
 export interface Repayment {

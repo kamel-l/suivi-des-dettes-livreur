@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import { Client, Transaction, Repayment } from "../types";
-import { formatCurrency, formatDate, getClientStats, generateWhatsAppLink } from "../utils";
+import { formatCurrency, formatDate, getClientStats, generateWhatsAppLink, getTransactionsWithBalancesForClient } from "../utils";
 import {
   X,
   Phone,
@@ -58,21 +58,26 @@ export default function ClientDetailsModal({
   const clientTransactions = transactions.filter((t) => t.clientId === client.id);
   const clientRepayments = repayments.filter((r) => r.clientId === client.id);
 
+  // Compute FIFO allocated balances for each transaction
+  const transactionsWithBalances = getTransactionsWithBalancesForClient(clientTransactions, clientRepayments);
+
   // Group all actions in historical chronological order
   const historyItems = [
-    ...clientTransactions.map((t) => ({
+    ...transactionsWithBalances.map((t) => ({
       type: "sale" as const,
       id: t.id,
       date: t.date,
+      dueDate: t.dueDate,
       title: t.description || (lang === "ar" ? "توصيل" : "Livraison"),
       primaryValue: t.totalAmount,
       secondaryValue: t.paidAmount,
-      balance: t.remainingBalance,
+      balance: t.allocatedRemainingBalance,
     })),
     ...clientRepayments.map((r) => ({
       type: "payment" as const,
       id: r.id,
       date: r.date,
+      dueDate: undefined,
       title: r.notes || (lang === "ar" ? "رصيد مسترجع" : "Règlement reçu"),
       primaryValue: r.amount,
       secondaryValue: 0,
@@ -327,10 +332,17 @@ export default function ClientDetailsModal({
                             {item.title}
                           </p>
                           {item.type === "sale" && (
-                            <p className="text-[10px] text-slate-505 font-mono">
-                              {lang === "ar" ? "تم توصيل:" : "Livré:"} {formatCurrency(item.primaryValue, currency)} | {lang === "ar" ? "التسبيق:" : "Acompte:"}{" "}
-                              {formatCurrency(item.secondaryValue, currency)}
-                            </p>
+                            <div className="text-[10px] text-slate-500 font-mono space-y-0.5 mt-0.5">
+                              <div>
+                                {lang === "ar" ? "تم توصيل:" : "Livré:"} {formatCurrency(item.primaryValue, currency)} | {lang === "ar" ? "التسبيق:" : "Acompte:"}{" "}
+                                {formatCurrency(item.secondaryValue, currency)}
+                              </div>
+                              {item.dueDate && (
+                                <div className="text-slate-400">
+                                  📅 {t.dueDate} : {formatDate(item.dueDate)}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
 
@@ -344,9 +356,13 @@ export default function ClientDetailsModal({
                             {formatCurrency(item.primaryValue, currency)}
                           </span>
 
-                          {item.type === "sale" && item.balance > 0 && (
-                            <span className="block text-[9px] font-mono text-rose-500 font-semibold">
-                              {lang === "ar" ? "دين:" : "Dette:"} {formatCurrency(item.balance, currency)}
+                          {item.type === "sale" && (
+                            <span className={`block text-[9px] font-mono font-semibold ${
+                              item.balance > 0 ? "text-rose-500" : "text-emerald-500"
+                            }`}>
+                              {item.balance > 0 
+                                ? `${lang === "ar" ? "دين:" : "Dette:"} ${formatCurrency(item.balance, currency)}`
+                                : `✅ ${lang === "ar" ? "خالص" : "Payé"}`}
                             </span>
                           )}
                         </div>

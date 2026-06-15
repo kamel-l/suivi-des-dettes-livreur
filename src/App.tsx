@@ -101,6 +101,16 @@ export default function App() {
     return localStorage.getItem("livreur-dette-currency") || "DA";
   });
 
+  const [reminderOffsetDays, setReminderOffsetDays] = useState<number>(() => {
+    const val = localStorage.getItem("livreur-dette-reminder-offset");
+    return val ? parseInt(val, 10) : 2;
+  });
+
+  const [defaultDueOffsetDays, setDefaultDueOffsetDays] = useState<number>(() => {
+    const val = localStorage.getItem("livreur-dette-default-due-offset");
+    return val ? parseInt(val, 10) : 7;
+  });
+
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
@@ -154,6 +164,14 @@ export default function App() {
     localStorage.setItem("livreur-dette-lang", lang);
   }, [lang]);
 
+  useEffect(() => {
+    localStorage.setItem("livreur-dette-reminder-offset", reminderOffsetDays.toString());
+  }, [reminderOffsetDays]);
+
+  useEffect(() => {
+    localStorage.setItem("livreur-dette-default-due-offset", defaultDueOffsetDays.toString());
+  }, [defaultDueOffsetDays]);
+
   // Action Handlers
   const handleAddClient = (name: string, phone: string, notes?: string): Client => {
     // Check if duplicate phone exists
@@ -185,7 +203,8 @@ export default function App() {
     clientId: string,
     description: string,
     totalAmount: number,
-    paidAmount: number
+    paidAmount: number,
+    dueDate?: string
   ) => {
     const newTransaction: Transaction = {
       id: "tx-" + Math.random().toString(36).substr(2, 9),
@@ -195,6 +214,7 @@ export default function App() {
       totalAmount,
       paidAmount,
       remainingBalance: totalAmount - paidAmount,
+      dueDate,
     };
 
     setTransactions((prev) => [...prev, newTransaction]);
@@ -273,6 +293,7 @@ export default function App() {
               onNavigate={setActiveTab}
               onSelectClient={setSelectedClient}
               lang={lang}
+              reminderOffsetDays={reminderOffsetDays}
             />
           )}
 
@@ -298,6 +319,7 @@ export default function App() {
                 setActiveTab("dashboard");
               }}
               lang={lang}
+              defaultDueOffsetDays={defaultDueOffsetDays}
             />
           )}
 
@@ -329,6 +351,10 @@ export default function App() {
                   setIsAuthenticated(true);
                 }
               }}
+              reminderOffsetDays={reminderOffsetDays}
+              setReminderOffsetDays={setReminderOffsetDays}
+              defaultDueOffsetDays={defaultDueOffsetDays}
+              setDefaultDueOffsetDays={setDefaultDueOffsetDays}
             />
           )}
         </main>

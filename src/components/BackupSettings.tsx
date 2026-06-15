@@ -30,6 +30,10 @@ interface BackupProps {
   storedUser: string | null;
   storedPass: string | null;
   onSetCredentials: (user: string | null, pass: string | null) => void;
+  reminderOffsetDays: number;
+  setReminderOffsetDays: (days: number) => void;
+  defaultDueOffsetDays: number;
+  setDefaultDueOffsetDays: (days: number) => void;
 }
 
 export default function BackupSettings({
@@ -42,6 +46,10 @@ export default function BackupSettings({
   storedUser,
   storedPass,
   onSetCredentials,
+  reminderOffsetDays,
+  setReminderOffsetDays,
+  defaultDueOffsetDays,
+  setDefaultDueOffsetDays,
 }: BackupProps) {
   const t = translations[lang];
   const isRtl = lang === "ar";
@@ -242,6 +250,62 @@ export default function BackupSettings({
           <p className="text-xs text-slate-300 leading-relaxed text-left">
             {t.securityDesc}
           </p>
+        </div>
+      </div>
+
+      {/* Configuration Section for Reminders and Due Dates */}
+      <div className="bg-white border border-slate-100 rounded-2xl p-4.5 space-y-4 shadow-xs text-left">
+        <div className={`flex items-center ${isRtl ? "space-x-reverse" : "space-x-2"} border-b border-slate-100 pb-2.5 mb-1`}>
+          <div className="bg-amber-100 text-amber-705 p-1.5 rounded-lg">
+            <RefreshCw className="w-4 h-4 text-amber-600 animate-spin-slow" />
+          </div>
+          <div>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+              {t.reminderSettings}
+            </h3>
+            <p className="text-[10px] text-slate-400">
+              {lang === "ar" ? "تعديل مهلة التنبيهات الافتراضية ودفع الفواتير" : "Définir les délais par défaut pour les alertes"}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3.5">
+          {/* Default due offset setting */}
+          <div className="space-y-1">
+            <label htmlFor="settings-due-offset-select" className="block text-xs font-medium text-slate-600">
+              {t.defaultDueOffsetDays}
+            </label>
+            <select
+              id="settings-due-offset-select"
+              value={defaultDueOffsetDays}
+              onChange={(e) => setDefaultDueOffsetDays(parseInt(e.target.value, 10))}
+              className="w-full bg-slate-50 border border-slate-205 text-slate-800 rounded-xl py-2 px-3 text-xs outline-none focus:ring-1 focus:ring-amber-500 font-semibold"
+            >
+              <option value={0}>{t.noDueDate}</option>
+              <option value={3}>3 {t.daysDefaultTerm}</option>
+              <option value={7}>7 {t.daysDefaultTerm}</option>
+              <option value={14}>14 {t.daysDefaultTerm}</option>
+              <option value={30}>30 {t.daysDefaultTerm}</option>
+            </select>
+          </div>
+
+          {/* Reminder offset setting */}
+          <div className="space-y-1">
+            <label htmlFor="settings-reminder-offset-select" className="block text-xs font-medium text-slate-600">
+              {t.reminderDaysOffset}
+            </label>
+            <select
+              id="settings-reminder-offset-select"
+              value={reminderOffsetDays}
+              onChange={(e) => setReminderOffsetDays(parseInt(e.target.value, 10))}
+              className="w-full bg-slate-50 border border-slate-205 text-slate-800 rounded-xl py-2 px-3 text-xs outline-none focus:ring-1 focus:ring-amber-500 font-semibold"
+            >
+              <option value={1}>1 {t.daysBeforeDue}</option>
+              <option value={2}>2 {t.daysBeforeDue}</option>
+              <option value={3}>3 {t.daysBeforeDue}</option>
+              <option value={5}>5 {t.daysBeforeDue}</option>
+            </select>
+          </div>
         </div>
       </div>
 

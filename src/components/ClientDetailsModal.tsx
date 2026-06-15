@@ -5,14 +5,7 @@
 
 import React, { useState } from "react";
 import { Client, Transaction, Repayment } from "../types";
-import {
-  calculateTransactionBalance,
-  formatCurrency,
-  formatDate,
-  generateWhatsAppLink,
-  getClientStats,
-  parseAmountInput,
-} from "../utils";
+import { formatCurrency, formatDate, getClientStats, generateWhatsAppLink } from "../utils";
 import {
   X,
   Phone,
@@ -25,8 +18,6 @@ import {
   MinusSquare,
   ShieldAlert,
   Save,
-  Edit,
-  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Language, translations } from "../translations";
@@ -38,10 +29,7 @@ interface ClientDetailsModalProps {
   repayments: Repayment[];
   currency: string;
   onAddRepayment: (clientId: string, amount: number, notes?: string) => void;
-  onUpdateClient: (clientId: string, name: string, phone: string, notes?: string) => void;
-  onDeleteClient: (clientId: string) => void;
-  onDeleteTransaction: (transactionId: string) => void;
-  onDeleteRepayment: (repaymentId: string) => void;
+  onDeleteClientData?: (clientId: string) => void; 
   lang: Language;
 }
 
@@ -52,40 +40,12 @@ export default function ClientDetailsModal({
   repayments,
   currency,
   onAddRepayment,
-  onUpdateClient,
-  onDeleteClient,
-  onDeleteTransaction,
-  onDeleteRepayment,
   lang,
 }: ClientDetailsModalProps) {
   if (!client) return null;
 
   const t = translations[lang];
   const isRtl = lang === "ar";
-
-  // Edit client state
-  const [isEditingClient, setIsEditingClient] = useState<boolean>(false);
-  const [editName, setEditName] = useState<string>(client.name);
-  const [editPhone, setEditPhone] = useState<string>(client.phone);
-  const [editNotes, setEditNotes] = useState<string>(client.notes || "");
-  const [editError, setEditError] = useState<string>("");
-
-  const handleSaveClientEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setEditError("");
-
-    if (!editName.trim()) {
-      setEditError(lang === "ar" ? "الاسم مطلوب." : "Le nom est obligatoire.");
-      return;
-    }
-    if (!editPhone.trim()) {
-      setEditError(lang === "ar" ? "رقم الهاتف مطلوب." : "Le numéro de téléphone est obligatoire.");
-      return;
-    }
-
-    onUpdateClient(client.id, editName.trim(), editPhone.trim(), editNotes.trim() || undefined);
-    setIsEditingClient(false);
-  };
 
   // Repayment form state
   const [repayAmount, setRepayAmount] = useState<string>("");
@@ -107,7 +67,7 @@ export default function ClientDetailsModal({
       title: t.description || (lang === "ar" ? "توصيل" : "Livraison"),
       primaryValue: t.totalAmount,
       secondaryValue: t.paidAmount,
-      balance: calculateTransactionBalance(t),
+      balance: t.remainingBalance,
     })),
     ...clientRepayments.map((r) => ({
       type: "payment" as const,
@@ -125,8 +85,8 @@ export default function ClientDetailsModal({
     setErrorMsg("");
     setSuccess(false);
 
-    const amount = parseAmountInput(repayAmount);
-    if (amount === null || amount <= 0) {
+    const amount = parseFloat(repayAmount);
+    if (isNaN(amount) || amount <= 0) {
       setErrorMsg(lang === "ar" ? "الرجاء إدخال مبلغ أكبر من 0." : "Veuillez saisir un montant supérieur à 0.");
       return;
     }
@@ -134,10 +94,10 @@ export default function ClientDetailsModal({
     if (amount > stats.debt) {
       setErrorMsg(
         lang === "ar" ? `المبلغ المُدخل أكبر من الديون الحالية (${formatCurrency(stats.debt, currency)})` :
-          `Le montant saisi (${formatCurrency(
-            amount,
-            currency
-          )}) est supérieur à la dette actuelle (${formatCurrency(stats.debt, currency)}).`
+        `Le montant saisi (${formatCurrency(
+          amount,
+          currency
+        )}) est supérieur à la dette actuelle (${formatCurrency(stats.debt, currency)}).`
       );
       return;
     }
@@ -163,7 +123,7 @@ export default function ClientDetailsModal({
     return `Bonjour ${client.name}, pour rappel concernant notre suivi de livraison, le reste à payer (solde de vos dettes) s'élève à ${formatCurrency(stats.debt, currency)}. Si vous souhaitez faire un versement de régularisation, merci de me contacter. Excellente journée !`;
   };
 
-  const whatsappUrl = generateWhatsAppLink(client.phone, getWhatsAppMessage(), currency);
+  const whatsappUrl = generateWhatsAppLink(client.phone, getWhatsAppMessage());
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
@@ -183,100 +143,32 @@ export default function ClientDetailsModal({
         <div className="mx-auto w-12 h-1 bg-slate-200 rounded-full my-3 block sm:hidden" />
 
         {/* Modal Header */}
-        {/* Modal Header */}
-        <div className="px-5 pb-3 pt-2 sm:pt-4 border-b border-slate-100">
-          {isEditingClient ? (
-            <form onSubmit={handleSaveClientEdit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 text-start">
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase">{lang === "ar" ? "الاسم" : "Nom"}</label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-amber-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase">{lang === "ar" ? "الهاتف" : "Téléphone"}</label>
-                  <input
-                    type="text"
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs font-mono font-bold outline-none focus:ring-1 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
-              <div className="text-start">
-                <label className="block text-[9px] font-bold text-slate-400 uppercase">{t.notesOptional}</label>
-                <input
-                  type="text"
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs outline-none focus:ring-1 focus:ring-amber-500"
-                />
-              </div>
-              {editError && <p className="text-[10px] text-rose-500 font-bold">{editError}</p>}
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="flex-1 bg-slate-900 text-white font-bold text-xs py-1.5 rounded-lg transition"
-                >
-                  {t.saveChanges}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditingClient(false);
-                    setEditName(client.name);
-                    setEditPhone(client.phone);
-                    setEditNotes(client.notes || "");
-                    setEditError("");
-                  }}
-                  className="flex-1 bg-slate-105 text-slate-700 font-bold text-xs py-1.5 rounded-lg transition"
-                >
-                  {t.cancel}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className={`flex items-start justify-between ${isRtl ? "text-right" : "text-left"}`}>
-              <div className="text-start">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {t.clientFile}
-                </span>
-                <div className={`flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-2`}>
-                  <h3 className="text-lg font-bold text-slate-900 leading-tight">
-                    {client.name}
-                  </h3>
-                  <button
-                    onClick={() => setIsEditingClient(true)}
-                    className="p-1 text-slate-400 hover:text-amber-505 rounded transition cursor-pointer"
-                    title={t.editClient}
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className={`flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1 mt-0.5`}>
-                  <Phone className="w-3 h-3 text-slate-400" />
-                  <span className="text-xs font-semibold text-slate-505 font-mono">
-                    {client.phone}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                id="close-details-modal-btn"
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <div className={`px-5 pb-3 pt-2 sm:pt-4 flex items-start justify-between border-b border-slate-100 ${isRtl ? "text-right" : "text-left"}`}>
+          <div className="text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              {t.clientFile}
+            </span>
+            <h3 className="text-lg font-bold text-slate-900 leading-tight">
+              {client.name}
+            </h3>
+            <div className={`flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1 mt-0.5`}>
+              <Phone className="w-3 h-3 text-slate-400" />
+              <span className="text-xs font-semibold text-slate-505 font-mono">
+                {client.phone}
+              </span>
             </div>
-          )}
+          </div>
+          <button
+            onClick={onClose}
+            id="close-details-modal-btn"
+            className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Modal Content Scrollable Area */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5 text-start">
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 text-left">
           {/* Main Debt Gauge */}
           <div className="bg-slate-900 text-white rounded-2xl p-4.5 text-center relative overflow-hidden">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
@@ -284,13 +176,14 @@ export default function ClientDetailsModal({
             </span>
             <p
               id="detail-outstanding-debt-display"
-              className={`text-2xl font-extrabold font-mono mt-1 ${stats.debt > 0 ? "text-rose-400 animate-pulse-slow font-black text-3xl" : "text-emerald-400"
-                }`}
+              className={`text-2xl font-extrabold font-mono mt-1 ${
+                stats.debt > 0 ? "text-rose-400 animate-pulse-slow font-black text-3xl" : "text-emerald-400"
+              }`}
             >
               {formatCurrency(stats.debt, currency)}
             </p>
 
-            <div className="grid grid-cols-2 gap-2 mt-4 pt-3.5 border-t border-slate-800 text-start">
+            <div className={`grid grid-cols-2 gap-2 mt-4 pt-3.5 border-t border-slate-800 text-left`}>
               <div>
                 <span className="block text-[9px] text-slate-400 uppercase">{t.totalDelivered}</span>
                 <span className="text-xs font-bold font-mono text-slate-200">
@@ -354,14 +247,13 @@ export default function ClientDetailsModal({
                     <input
                       id="repayment-amount-input"
                       type="number"
-                      step="any"
-                      inputMode="decimal"
+                      inputMode="numeric"
                       placeholder={lang === "ar" ? `مبلغ التسديد (الأقصى: ${stats.debt})` : `Montant du versement (Max: ${stats.debt})`}
                       value={repayAmount}
                       onChange={(e) => setRepayAmount(e.target.value)}
                       className={`w-full bg-white border border-emerald-200 rounded-lg py-2 text-xs font-bold font-mono text-slate-800 outline-none focus:ring-1 focus:ring-emerald-500 ${isRtl ? "pl-12 pr-3" : "pr-12 pl-3"}`}
                     />
-                    <span className={`absolute inset-y-0 ${isRtl ? "left-3.5" : "right-3.5"} flex items-center text-xs font-bold text-slate-405 font-mono`}>
+                    <span className={`absolute inset-y-0 ${isRtl ? "left-3.5" : "right-3.5"} flex items-center text-xs font-bold text-slate-400 font-mono`}>
                       {currency}
                     </span>
                   </div>
@@ -400,7 +292,7 @@ export default function ClientDetailsModal({
 
           {/* Chronological History Timeline */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 text-start">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 text-left">
               {t.historyTimeline}
             </h4>
 
@@ -411,15 +303,16 @@ export default function ClientDetailsModal({
             ) : (
               <div className={`relative ${isRtl ? "pr-4 border-r-2" : "pl-4 border-l-2"} border-slate-100 space-y-4`}>
                 {historyItems.map((item) => (
-                  <div key={item.id} className="relative group/item text-start">
+                  <div key={item.id} className="relative group/item text-left">
                     {/* Timestamp Dot */}
                     <div
-                      className={`absolute ${isRtl ? "-right-[21px]" : "-left-[21px]"} top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${item.type === "sale" ? "bg-amber-500" : "bg-emerald-500"
-                        }`}
+                      className={`absolute ${isRtl ? "-right-[21px]" : "-left-[21px]"} top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                        item.type === "sale" ? "bg-amber-500" : "bg-emerald-500"
+                      }`}
                     />
 
                     {/* Timeline Event Content */}
-                    <div className="space-y-1 text-start">
+                    <div className="space-y-1 text-left">
                       <div className="flex items-center justify-between text-[10px] text-slate-400">
                         <span className={`flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1 font-mono font-medium`}>
                           <Calendar className="w-3 h-3" />
@@ -429,7 +322,7 @@ export default function ClientDetailsModal({
                       </div>
 
                       <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
+                        <div>
                           <p className="text-xs font-bold text-slate-800 leading-tight">
                             {item.title}
                           </p>
@@ -441,39 +334,21 @@ export default function ClientDetailsModal({
                           )}
                         </div>
 
-                        <div className="flex items-center space-x-2 space-x-reverse">
-                          <div className="text-end">
-                            <span
-                              className={`text-xs font-bold font-mono ${item.type === "sale" ? "text-slate-800" : "text-emerald-600"
-                                }`}
-                            >
-                              {item.type === "sale" ? "+" : "-"}
-                              {formatCurrency(item.primaryValue, currency)}
-                            </span>
-
-                            {item.type === "sale" && item.balance > 0 && (
-                              <span className="block text-[9px] font-mono text-rose-500 font-semibold">
-                                {lang === "ar" ? "دين:" : "Dette:"} {formatCurrency(item.balance, currency)}
-                              </span>
-                            )}
-                          </div>
-
-                          <button
-                            onClick={() => {
-                              const confirmMsg = item.type === "sale" ? t.confirmDeleteTransaction : t.confirmDeleteRepayment;
-                              if (window.confirm(confirmMsg)) {
-                                if (item.type === "sale") {
-                                  onDeleteTransaction(item.id);
-                                } else {
-                                  onDeleteRepayment(item.id);
-                                }
-                              }
-                            }}
-                            className="p-1 rounded text-slate-305 hover:text-rose-600 hover:bg-slate-50 transition cursor-pointer"
-                            title={lang === "ar" ? "حذف" : "Supprimer"}
+                        <div className="text-right">
+                          <span
+                            className={`text-xs font-bold font-mono ${
+                              item.type === "sale" ? "text-slate-800" : "text-emerald-600"
+                            }`}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                            {item.type === "sale" ? "+" : "-"}
+                            {formatCurrency(item.primaryValue, currency)}
+                          </span>
+
+                          {item.type === "sale" && item.balance > 0 && (
+                            <span className="block text-[9px] font-mono text-rose-500 font-semibold">
+                              {lang === "ar" ? "دين:" : "Dette:"} {formatCurrency(item.balance, currency)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -482,32 +357,8 @@ export default function ClientDetailsModal({
               </div>
             )}
           </div>
-
-          {/* Danger Zone: delete client */}
-          <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4.5 space-y-2.5 mt-4 text-start">
-            <h5 className="text-xs font-bold text-rose-800 uppercase flex items-center gap-1.5">
-              <ShieldAlert className="w-4 h-4 text-rose-600" />
-              <span>{t.dangerZone}</span>
-            </h5>
-            <p className="text-[10px] text-rose-700 leading-snug">
-              {t.confirmDeleteClient}
-            </p>
-            <button
-              onClick={() => {
-                if (window.confirm(t.confirmDeleteClient)) {
-                  onDeleteClient(client.id);
-                  onClose();
-                }
-              }}
-              className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2 rounded-xl transition cursor-pointer text-center"
-            >
-              {t.deleteClient}
-            </button>
-          </div>
-
         </div>
       </motion.div>
     </div>
   );
 }
-

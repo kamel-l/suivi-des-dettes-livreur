@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import { Client, Transaction, Repayment } from "../types";
-import { formatCurrency, getClientStats, normalizePhone } from "../utils";
+import { formatCurrency, getClientStats } from "../utils";
 import { Search, Plus, Phone, AlertTriangle, CheckCircle, Smartphone, UserPlus } from "lucide-react";
 import { motion } from "motion/react";
 import { Language, translations } from "../translations";
@@ -60,7 +60,7 @@ export default function ClientsList({
     }
 
     // Check duplicate phone
-    const phoneExists = clients.some(c => normalizePhone(c.phone) === normalizePhone(phoneInput));
+    const phoneExists = clients.some(c => c.phone.trim() === phoneInput.trim());
     if (phoneExists) {
       setErrMsg(t.duplicatePhoneError);
       return;
@@ -114,7 +114,7 @@ export default function ClientsList({
     >
       {/* Search Header and Action Toggle */}
       <div className={`flex items-center justify-between ${isRtl ? "flex-row-reverse" : ""}`}>
-        <h2 className="text-base font-bold text-slate-800 uppercase tracking-wide text-start">
+        <h2 className="text-base font-bold text-slate-800 uppercase tracking-wide text-left">
           {t.clientDirectory}
         </h2>
         <button
@@ -133,7 +133,7 @@ export default function ClientsList({
           id="inline-add-client-form"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
-          className="bg-slate-55 border border-slate-200 rounded-xl p-4 space-y-3 overflow-hidden text-start"
+          className="bg-slate-55 border border-slate-200 rounded-xl p-4 space-y-3 overflow-hidden text-left"
         >
           <h3 className="text-xs font-bold text-slate-700 uppercase">
             {t.newClient}
@@ -206,7 +206,7 @@ export default function ClientsList({
           placeholder={t.searchPlaceholder}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className={`w-full bg-white border border-slate-250 text-slate-850 rounded-2xl py-2.5 ${isRtl ? "pr-10 pl-4" : "pl-10 pr-4"} text-sm outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition shadow-xs text-start`}
+          className={`w-full bg-white border border-slate-250 text-slate-850 rounded-2xl py-2.5 ${isRtl ? "pr-10 pl-4" : "pl-10 pr-4"} text-sm outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition shadow-xs text-left`}
         />
       </div>
 
@@ -262,7 +262,7 @@ export default function ClientsList({
                 id={`client-card-${client.id}`}
                 className={`bg-white border border-slate-150 hover:border-amber-200 transition rounded-2xl p-4 flex items-center justify-between cursor-pointer shadow-xs ${isRtl ? "flex-row-reverse" : ""}`}
               >
-                <div className="space-y-1 text-start">
+                <div className="space-y-1 text-left">
                   <h3 className="font-extrabold text-sm text-slate-800 leading-snug">
                     {client.name}
                   </h3>
@@ -277,7 +277,7 @@ export default function ClientsList({
                   )}
                 </div>
 
-                <div className="text-end flex flex-col items-end space-y-1.5">
+                <div className="text-right flex flex-col items-end space-y-1.5">
                   <div className="space-y-0.5">
                     <span className="block text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">
                       {lang === "ar" ? "الرصيد المتبقي" : "Solde Restant"}

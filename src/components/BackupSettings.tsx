@@ -24,11 +24,12 @@ interface BackupProps {
   clients: Client[];
   transactions: Transaction[];
   repayments: Repayment[];
-  onRestore: (data: BackupData, merge: boolean) => void;
+  onRestore: (data: BackupData) => void;
   onClearAll: () => void;
   lang: Language;
-  storedPin: string | null;
-  onSetPin: (pin: string | null) => void;
+  storedUser: string | null;
+  storedPass: string | null;
+  onSetCredentials: (user: string | null, pass: string | null) => void;
 }
 
 export default function BackupSettings({
@@ -38,8 +39,9 @@ export default function BackupSettings({
   onRestore,
   onClearAll,
   lang,
-  storedPin,
-  onSetPin,
+  storedUser,
+  storedPass,
+  onSetCredentials,
 }: BackupProps) {
   const t = translations[lang];
   const isRtl = lang === "ar";
@@ -48,43 +50,55 @@ export default function BackupSettings({
   const [successMsg, setSuccessMsg] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
-  const [mergeOnRestore, setMergeOnRestore] = useState<boolean>(false);
 
   // Danger zone confirmation
   const [confirmValue, setConfirmValue] = useState<string>("");
   const [showConfirmReset, setShowConfirmReset] = useState<boolean>(false);
 
-  // PIN security settings states
-  const [pinChangeActive, setPinChangeActive] = useState<boolean>(false);
-  const [newSettingsPin, setNewSettingsPin] = useState<string>("");
-  const [confirmSettingsPin, setConfirmSettingsPin] = useState<string>("");
+  // Credentials security settings states
+  const [authChangeActive, setAuthChangeActive] = useState<boolean>(false);
+  const [newSettingsUser, setNewSettingsUser] = useState<string>("");
+  const [newSettingsPass, setNewSettingsPass] = useState<string>("");
+  const [confirmSettingsPass, setConfirmSettingsPass] = useState<string>("");
 
-  const handleSavePinSettings = (e: React.FormEvent) => {
+  const handleSaveAuthSettings = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setSuccessMsg("");
 
-    if (newSettingsPin.length < 4) {
-      setErrorMsg(lang === "ar" ? "يجب أن يتكون الرمز الجديد من 4 أرقام للتأمين." : "Le nouveau code PIN doit comporter 4 chiffres.");
+    const trimmedUser = newSettingsUser.trim();
+    if (!trimmedUser || !newSettingsPass || !confirmSettingsPass) {
+      setErrorMsg(lang === "ar" ? "يرجى ملء جميع الحقول المطلوبة!" : "Veuillez remplir tous les champs !");
       return;
     }
 
-    if (newSettingsPin !== confirmSettingsPin) {
-      setErrorMsg(t.pinsDoNotMatch);
+    if (trimmedUser.length < 3) {
+      setErrorMsg(lang === "ar" ? "اسم المستخدم يجب أن يكون 3 أحرف على الأقل." : "Le nom d'utilisateur doit comporter au moins 3 caractères.");
       return;
     }
 
-    onSetPin(newSettingsPin);
-    setSuccessMsg(t.pinSetSuccess);
-    setNewSettingsPin("");
-    setConfirmSettingsPin("");
-    setPinChangeActive(false);
+    if (newSettingsPass.length < 4) {
+      setErrorMsg(lang === "ar" ? "كلمة المرور يجب أن تكون 4 أحرف على الأقل." : "Le mot de passe doit comporter au moins 4 caractères.");
+      return;
+    }
+
+    if (newSettingsPass !== confirmSettingsPass) {
+      setErrorMsg(t.passwordsDoNotMatch || "Les mots de passe ne correspondent pas !");
+      return;
+    }
+
+    onSetCredentials(trimmedUser, newSettingsPass);
+    setSuccessMsg(t.authSetSuccess);
+    setNewSettingsUser("");
+    setNewSettingsPass("");
+    setConfirmSettingsPass("");
+    setAuthChangeActive(false);
   };
 
-  const handleDisablePin = () => {
-    onSetPin(null);
-    setSuccessMsg(t.pinDisabledSuccess);
-    setPinChangeActive(false);
+  const handleDisableAuth = () => {
+    onSetCredentials(null, null);
+    setSuccessMsg(t.authDisabledSuccess);
+    setAuthChangeActive(false);
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,19 +114,19 @@ export default function BackupSettings({
     };
   };
 
-  // 1. Download Backup as File (using Blob URL — safe and memory-friendly)
+  // 1. Download Backup as File
   const handleDownloadBackup = () => {
     const backup = generateBackupPayload();
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-    const blobUrl = URL.createObjectURL(blob);
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
     const downloadAnchor = document.createElement("a");
-    downloadAnchor.href = blobUrl;
-    downloadAnchor.download = `Sauvegarde_Dettes_Livreur_${new Date().toISOString().split("T")[0]}.json`;
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute(
+      "download",
+      `Sauvegarde_Dettes_Livreur_${new Date().toISOString().split("T")[0]}.json`
+    );
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-    // Release object URL to free memory
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
     setSuccessMsg(lang === "ar" ? "تم تحميل ملف النسخة الاحتياطية بنجاح!" : "Fichier de sauvegarde téléchargé avec succès ! Checkez vos téléchargements.");
     setTimeout(() => setSuccessMsg(""), 4000);
@@ -149,11 +163,10 @@ export default function BackupSettings({
       try {
         const parsed = JSON.parse(event.target?.result as string);
         if (validateBackupData(parsed)) {
-          onRestore(parsed, mergeOnRestore);
+          onRestore(parsed);
           setSuccessMsg(
-            mergeOnRestore
-              ? (lang === "ar" ? `تم دمج البيانات بنجاح! تم العثور على ${parsed.clients.length} زبون.` : `Fusion réussie ! ${parsed.clients.length} clients fusionnés avec vos données locales.`)
-              : (lang === "ar" ? `تم استرجاع البيانات بنجاح! تم العثور على ${parsed.clients.length} زبون.` : `Restauration réussie ! ${parsed.clients.length} clients et leurs transactions ont été récupérés.`)
+            lang === "ar" ? `تم استرجاع البيانات بنجاح! تم العثور على ${parsed.clients.length} زبون.` :
+            `Restauration réussie ! ${parsed.clients.length} clients et leurs transactions ont été récupérés.`
           );
           if (fileInputRef.current) fileInputRef.current.value = "";
         } else {
@@ -180,11 +193,10 @@ export default function BackupSettings({
     try {
       const parsed = JSON.parse(inputTextCode.trim());
       if (validateBackupData(parsed)) {
-        onRestore(parsed, mergeOnRestore);
+        onRestore(parsed);
         setSuccessMsg(
-          mergeOnRestore
-            ? (lang === "ar" ? `تم دمج البيانات بنجاح! تم استرجاع ${parsed.clients.length} زبون.` : `Fusion réussie ! ${parsed.clients.length} clients fusionnés avec vos données locales.`)
-            : (lang === "ar" ? `تم الاستيراد بنجاح! تم استرجاع ${parsed.clients.length} زبون.` : `Restauration réussie ! ${parsed.clients.length} clients et leurs transactions ont été importés.`)
+          lang === "ar" ? `تم الاستيراد بنجاح! تم استرجاع ${parsed.clients.length} زبون.` :
+          `Restauration réussie ! ${parsed.clients.length} clients et leurs transactions ont été importés.`
         );
         setInputTextCode("");
       } else {
@@ -278,24 +290,6 @@ export default function BackupSettings({
           {t.restoreTitle}
         </h3>
 
-        {/* Merge toggle — shared by both restore methods */}
-        <label
-          htmlFor="merge-toggle"
-          className="flex items-start gap-2.5 cursor-pointer bg-amber-50 border border-amber-100 p-3 rounded-xl"
-        >
-          <input
-            id="merge-toggle"
-            type="checkbox"
-            checked={mergeOnRestore}
-            onChange={(e) => setMergeOnRestore(e.target.checked)}
-            className="mt-0.5 accent-amber-500 w-4 h-4 shrink-0"
-          />
-          <div>
-            <p className="text-xs font-bold text-amber-800">{t.mergeDataLabel}</p>
-            <p className="text-[10px] text-amber-700 leading-snug mt-0.5">{t.mergeDataDesc}</p>
-          </div>
-        </label>
-
         {/* Upload File Input */}
         <div className="space-y-1">
           <label className="block text-[10px] text-slate-400 font-bold uppercase">
@@ -344,7 +338,7 @@ export default function BackupSettings({
         </form>
       </div>
 
-      {/* PIN Lock Security Settings Card */}
+          {/* Username / Password Security Settings Card */}
       <div className="bg-white border border-slate-100 rounded-2xl p-4.5 space-y-4 shadow-xs text-left">
         <div className={`flex items-center justify-between ${isRtl ? "flex-row-reverse" : ""}`}>
           <div className={`flex items-center ${isRtl ? "space-x-reverse" : "space-x-2"}`}>
@@ -353,7 +347,7 @@ export default function BackupSettings({
             </div>
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                {t.pinInfo}
+                {t.authInfo}
               </h3>
               <p className="text-[10px] text-slate-400">
                 {lang === "ar" ? "حظر التطفل والدخول غير المصرح" : "Protéger l'accès physique à l'app"}
@@ -362,44 +356,45 @@ export default function BackupSettings({
           </div>
 
           <span className={`text-[10px] font-bold py-0.5 px-2 rounded-md ${
-            storedPin ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
+            (storedUser && storedPass) ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
           }`}>
-            {storedPin ? (lang === "ar" ? "✓ نشط" : "✓ Activé") : (lang === "ar" ? "تعطيل حماية" : "Désactivé")}
+            {(storedUser && storedPass) ? (lang === "ar" ? "✓ نشط" : "✓ Activé") : (lang === "ar" ? "تعطيل حماية" : "Désactivé")}
           </span>
         </div>
 
-        {storedPin && !pinChangeActive && (
+        {(storedUser && storedPass) && !authChangeActive && (
           <div className="flex gap-2 text-xs">
             <button
-              onClick={() => setPinChangeActive(true)}
-              id="settings-trigger-modify-pin"
+              onClick={() => setAuthChangeActive(true)}
+              id="settings-trigger-modify-auth"
               className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-xl font-bold cursor-pointer transition text-center"
             >
-              {t.changePin}
+              {t.changeAuth}
             </button>
             <button
-              onClick={handleDisablePin}
-              id="settings-disable-pin-btn"
+              onClick={handleDisableAuth}
+              id="settings-disable-auth-btn"
               className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 py-2 rounded-xl font-bold cursor-pointer transition border border-rose-100 text-center"
             >
-              {t.disablePin}
+              {t.disableAuth}
             </button>
           </div>
         )}
 
-        {(!storedPin || pinChangeActive) && (
-          <form onSubmit={handleSavePinSettings} className="space-y-3 pt-2 border-t border-slate-100">
+        {(!(storedUser && storedPass) || authChangeActive) && (
+          <form onSubmit={handleSaveAuthSettings} className="space-y-3 pt-2 border-t border-slate-100">
             <div className={`flex items-center justify-between`}>
               <span className="text-xs font-bold text-slate-600">
-                {pinChangeActive ? t.changePin : t.setupPinTitle}
+                {authChangeActive ? t.changeAuth : t.setupAuthTitle}
               </span>
-              {pinChangeActive && (
+              {authChangeActive && (
                 <button
                   type="button"
                   onClick={() => {
-                    setPinChangeActive(false);
-                    setNewSettingsPin("");
-                    setConfirmSettingsPin("");
+                    setAuthChangeActive(false);
+                    setNewSettingsUser("");
+                    setNewSettingsPass("");
+                    setConfirmSettingsPass("");
                   }}
                   className="text-xs text-slate-400 hover:text-slate-605"
                 >
@@ -408,46 +403,58 @@ export default function BackupSettings({
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-2.5">
               <div className="space-y-1">
-                <label htmlFor="settings-new-pin-input" className="block text-[9px] text-slate-400 font-bold uppercase">
-                  {lang === "ar" ? "الرمز السري الجديد" : "Nouveau code (4 ch.)"}
+                <label htmlFor="settings-new-user-input" className="block text-[9px] text-slate-400 font-bold uppercase">
+                  {t.usernameLabel}
                 </label>
                 <input
-                  id="settings-new-pin-input"
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={4}
-                  placeholder="••••"
-                  value={newSettingsPin}
-                  onChange={(e) => setNewSettingsPin(e.target.value.replace(/\D/g, ""))}
-                  className="w-full bg-slate-50 border border-slate-200 text-center text-sm font-bold tracking-widest py-1.5 px-2 rounded-lg outline-none focus:ring-1 focus:ring-amber-500"
+                  id="settings-new-user-input"
+                  type="text"
+                  placeholder={lang === "ar" ? "مثال: سفيان" : "Ex: slimane"}
+                  value={newSettingsUser}
+                  onChange={(e) => setNewSettingsUser(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-sm font-bold py-1.5 px-3 rounded-lg outline-none focus:ring-1 focus:ring-amber-500 text-left"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label htmlFor="settings-confirm-pin-input" className="block text-[9px] text-slate-400 font-bold uppercase">
-                  {t.confirmPin}
-                </label>
-                <input
-                  id="settings-confirm-pin-input"
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={4}
-                  placeholder="••••"
-                  value={confirmSettingsPin}
-                  onChange={(e) => setConfirmSettingsPin(e.target.value.replace(/\D/g, ""))}
-                  className="w-full bg-slate-50 border border-slate-200 text-center text-sm font-bold tracking-widest py-1.5 px-2 rounded-lg outline-none focus:ring-1 focus:ring-amber-500"
-                />
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <label htmlFor="settings-new-pass-input" className="block text-[9px] text-slate-400 font-bold uppercase">
+                    {t.passwordLabel}
+                  </label>
+                  <input
+                    id="settings-new-pass-input"
+                    type="password"
+                    placeholder="••••"
+                    value={newSettingsPass}
+                    onChange={(e) => setNewSettingsPass(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-center text-sm font-bold tracking-widest py-1.5 px-2 rounded-lg outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label htmlFor="settings-confirm-pass-input" className="block text-[9px] text-slate-400 font-bold uppercase">
+                    {t.confirmPassword}
+                  </label>
+                  <input
+                    id="settings-confirm-pass-input"
+                    type="password"
+                    placeholder="••••"
+                    value={confirmSettingsPass}
+                    onChange={(e) => setConfirmSettingsPass(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-center text-sm font-bold tracking-widest py-1.5 px-2 rounded-lg outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
               </div>
             </div>
 
             <button
               type="submit"
-              id="settings-confirm-new-pin-btn"
+              id="settings-confirm-new-auth-btn"
               className="w-full bg-slate-900 text-white font-bold text-xs py-2 rounded-xl flex items-center justify-center space-x-1 hover:bg-slate-800 transition cursor-pointer"
             >
-              <span>{t.savePin}</span>
+              <span>{t.saveAuth}</span>
             </button>
           </form>
         )}

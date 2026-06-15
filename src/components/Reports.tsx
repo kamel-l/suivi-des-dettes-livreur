@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import { Client, Transaction, Repayment } from "../types";
-import { calculateTransactionBalance, formatCurrency, formatDate } from "../utils";
+import { formatCurrency, formatDate } from "../utils";
 import {
   Calendar,
   TrendingUp,
@@ -60,13 +60,10 @@ export default function Reports({
       const diff = start.getDate() - day + (day === 0 ? -6 : 1);
       start.setDate(diff);
       start.setHours(0, 0, 0, 0);
-      end.setTime(start.getTime());
-      end.setDate(start.getDate() + 6);
       end.setHours(23, 59, 59, 999);
     } else if (selectedPeriod === "month") {
       start.setDate(1);
       start.setHours(0, 0, 0, 0);
-      end.setMonth(start.getMonth() + 1, 0);
       end.setHours(23, 59, 59, 999);
     }
     return { start, end };
@@ -94,7 +91,7 @@ export default function Reports({
   const totalCashCollected = totalAcomptesAtDelivery + totalSubsequentRepayments;
 
   // New remaining balance (credits/debt created in this period)
-  const totalNewDebtsCreated = periodTx.reduce((acc, t) => acc + calculateTransactionBalance(t), 0);
+  const totalNewDebtsCreated = periodTx.reduce((acc, t) => acc + t.remainingBalance, 0);
 
   // Chronological Operation Log of this period
   const logItems = [
@@ -110,7 +107,7 @@ export default function Reports({
         title: t.description || (lang === "ar" ? "طلبيّة سلع" : "Livraison"),
         amountValue: t.totalAmount,
         paidAtDelivery: t.paidAmount,
-        debtCreated: calculateTransactionBalance(t),
+        debtCreated: t.remainingBalance,
       };
     }),
     ...periodRepayments.map((r) => {

@@ -6,7 +6,7 @@
 import React, { useState } from "react";
 import { Client, Transaction } from "../types";
 import { PlusCircle, UserPlus, CheckCircle2, UserCheck } from "lucide-react";
-import { formatCurrency, normalizePhone, parseAmountInput } from "../utils";
+import { formatCurrency } from "../utils";
 import { motion } from "motion/react";
 import { Language, translations } from "../translations";
 
@@ -51,10 +51,8 @@ export default function NewTransactionForm({
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   // Derived balance calculation
-  const parsedTotal = parseAmountInput(totalAmount);
-  const parsedPaid = paidAmount.trim() ? parseAmountInput(paidAmount) : 0;
-  const calculatedTotal = parsedTotal ?? 0;
-  const calculatedPaid = parsedPaid ?? 0;
+  const calculatedTotal = parseFloat(totalAmount) || 0;
+  const calculatedPaid = parseFloat(paidAmount) || 0;
   const remainingBalance = Math.max(0, calculatedTotal - calculatedPaid);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -75,7 +73,7 @@ export default function NewTransactionForm({
       }
 
       // Check duplicate
-      const phoneExists = clients.some(c => normalizePhone(c.phone) === normalizePhone(newClientPhone));
+      const phoneExists = clients.some(c => c.phone.trim() === newClientPhone.trim());
       if (phoneExists) {
         setErrorMessage(t.duplicatePhoneError);
         return;
@@ -96,13 +94,8 @@ export default function NewTransactionForm({
       }
     }
 
-    if (parsedTotal === null || calculatedTotal <= 0) {
+    if (calculatedTotal <= 0) {
       setErrorMessage(lang === "ar" ? "يجب أن يكون مبلغ التوصيل أكبر من 0." : "Le montant total de la livraison doit être supérieur à 0.");
-      return;
-    }
-
-    if (parsedPaid === null) {
-      setErrorMessage(lang === "ar" ? "يرجى إدخال مبلغ تسبيق صحيح." : "Veuillez saisir un acompte valide, en chiffres entiers.");
       return;
     }
 
@@ -138,12 +131,12 @@ export default function NewTransactionForm({
       className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4"
       dir={isRtl ? "rtl" : "ltr"}
     >
-      <div className={`flex items-center ${isRtl ? "space-x-reverse" : "space-x-2"} border-b border-slate-100 pb-3 mb-1 text-start`}>
+      <div className={`flex items-center ${isRtl ? "space-x-reverse" : "space-x-2"} border-b border-slate-100 pb-3 mb-1 text-left`}>
         <PlusCircle className="w-5 h-5 text-amber-500" />
         <h2 className="text-base font-bold text-slate-800">{t.billDelivery}</h2>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 text-start">
+      <form onSubmit={handleSubmit} className="space-y-4 text-left">
         {/* Toggle Client Selector */}
         <div className="flex bg-slate-100 p-1.5 rounded-xl">
           <button
@@ -251,8 +244,7 @@ export default function NewTransactionForm({
                 <input
                   id="total-amount-input"
                   type="number"
-                  step="any"
-                  inputMode="decimal"
+                  inputMode="numeric"
                   placeholder="Ex: 15000"
                   value={totalAmount}
                   onChange={(e) => setTotalAmount(e.target.value)}
@@ -272,8 +264,7 @@ export default function NewTransactionForm({
                 <input
                   id="paid-amount-input"
                   type="number"
-                  step="any"
-                  inputMode="decimal"
+                  inputMode="numeric"
                   placeholder="Ex: 5000"
                   value={paidAmount}
                   onChange={(e) => setPaidAmount(e.target.value)}
@@ -290,7 +281,7 @@ export default function NewTransactionForm({
         {/* Dynamic Balance Calculation Box */}
         {(calculatedTotal > 0 || calculatedPaid > 0) && (
           <div className="p-4 rounded-xl border flex items-center justify-between transition bg-slate-900 border-slate-800 text-white">
-            <div className="text-start">
+            <div className="text-left">
               <span className="block text-[10px] text-slate-400 uppercase font-medium">
                 {t.balanceRemaining} (Equation)
               </span>
@@ -298,7 +289,7 @@ export default function NewTransactionForm({
                 {totalAmount || 0} - {paidAmount || 0}
               </span>
             </div>
-            <div className="text-end">
+            <div className="text-right">
               <span className="block text-[10px] text-slate-400 uppercase font-semibold">
                 {t.balanceRemaining}
               </span>

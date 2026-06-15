@@ -36,7 +36,6 @@ export default function Dashboard({
   let totalDues = 0;
   let totalPaid = 0;
   let activeDebtorsCount = 0;
-  let totalOutstandingDebt = 0;
 
   const clientStatsList = clients.map((client) => {
     const stats = getClientStats(client, transactions, repayments);
@@ -45,10 +44,10 @@ export default function Dashboard({
     }
     totalDues += stats.totalDelivered;
     totalPaid += stats.totalPaid;
-    totalOutstandingDebt += stats.debt;
     return { client, stats };
   });
 
+  const totalOutstandingDebt = Math.max(0, totalDues - totalPaid);
   const percentPaid = totalDues > 0 ? Math.round((totalPaid / totalDues) * 100) : 100;
 
   // Sorting clients by top debt
@@ -72,10 +71,10 @@ export default function Dashboard({
         {/* Decorative background circle */}
         <div className={`absolute ${isRtl ? "-left-10" : "-right-10"} -top-10 w-32 h-32 bg-amber-500/10 rounded-full blur-xl pointer-events-none`} />
 
-        <p className="text-slate-400 text-xs font-medium uppercase tracking-wider text-start">
+        <p className="text-slate-400 text-xs font-medium uppercase tracking-wider text-left">
           {t.outstandingDebt}
         </p>
-        <h2 className="text-3xl font-extrabold text-amber-400 mt-1 font-mono tracking-tight text-start">
+        <h2 className="text-3xl font-extrabold text-amber-400 mt-1 font-mono tracking-tight text-left">
           {formatCurrency(totalOutstandingDebt, currency)}
         </h2>
 
@@ -97,12 +96,12 @@ export default function Dashboard({
           <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
             <div
               className={`bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500`}
-              style={{ width: `${Math.min(100, percentPaid)}%` }}
+              style={{ width: `${percentPaid}%` }}
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mt-5 pt-4 border-t border-slate-800 text-start">
+        <div className="grid grid-cols-2 gap-4 mt-5 pt-4 border-t border-slate-800 text-left">
           <div>
             <span className="block text-[10px] text-slate-400 uppercase font-medium">
               {t.alreadyPaid}
@@ -128,7 +127,7 @@ export default function Dashboard({
           <div className="bg-rose-50 text-rose-600 p-2.5 rounded-lg">
             <AlertCircle className="w-5 h-5" />
           </div>
-          <div className="text-start">
+          <div className="text-left">
             <span className="block text-[10px] text-slate-400 uppercase font-medium">
               {t.indebtedClients}
             </span>
@@ -142,7 +141,7 @@ export default function Dashboard({
           <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-lg">
             <UserCheck className="w-5 h-5" />
           </div>
-          <div className="text-start">
+          <div className="text-left">
             <span className="block text-[10px] text-slate-400 uppercase font-medium">
               {t.totalClients}
             </span>
@@ -181,7 +180,7 @@ export default function Dashboard({
 
       {/* High Alert List (Top Debtors) */}
       <div className="space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 text-start">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 text-left">
           {t.highDebtAlerts}
         </h3>
         {topDebtors.length === 0 ? (
@@ -202,11 +201,11 @@ export default function Dashboard({
                 id={`top-debtor-card-${client.id}`}
                 className={`bg-white border border-slate-100 hover:border-amber-200 hover:bg-amber-50/30 transition rounded-xl p-3.5 flex items-center justify-between cursor-pointer shadow-xs ${isRtl ? "flex-row-reverse" : ""}`}
               >
-                <div className="space-y-0.5 text-start">
+                <div className="space-y-0.5 text-left">
                   <h4 className="font-bold text-sm text-slate-800">{client.name}</h4>
                   <p className="text-xs text-slate-500 font-mono">{client.phone}</p>
                 </div>
-                <div className="text-end">
+                <div className="text-right">
                   <p className="text-sm font-bold text-rose-600 font-mono">
                     {formatCurrency(stats.debt, currency)}
                   </p>

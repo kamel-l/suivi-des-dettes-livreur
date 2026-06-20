@@ -141,6 +141,9 @@ export const translations = {
     daysDefaultTerm: "jours après livraison",
     noDueDate: "Pas d'échéance",
     daysCount: "jours",
+    edit: "Modifier",
+    save: "Enregistrer",
+    cancel: "Annuler",
   },
   ar: {
     appName: "دفتر الديون",
@@ -277,5 +280,8 @@ export const translations = {
     daysDefaultTerm: "أيام بعد التوصيل",
     noDueDate: "بدون تاريخ استحقاق",
     daysCount: "أيام",
+    edit: "تعديل",
+    save: "حفظ",
+    cancel: "إلغاء",
   },
 } as const;

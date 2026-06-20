@@ -1,4 +1,4 @@
-package com.livreurdette.app;
+package com.livreur.app;
 
 import com.getcapacitor.BridgeActivity;
 

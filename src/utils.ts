@@ -47,12 +47,49 @@ export function formatDate(dateString: string, includeTime: boolean = false): st
 }
 
 /**
+ * Normalise un numéro de téléphone en supprimant espaces et caractères spéciaux.
+ * Conserve le signe '+' s'il est présent.
+ */
+export const normalizePhone = (phone: string): string => {
+  return phone.replace(/\s/g, "").replace(/[^0-9+]/g, "");
+};
+
+/**
+ * Convertit un numéro de téléphone au format international pour WhatsApp.
+ * Gère les cas :
+ * - 0XXXXXXXXX (Algérie) → +213XXXXXXXXX
+ * - 00XXX → +XXX
+ * - 213XXX → +213XXX
+ * - +213XXX → conservé
+ */
+export const toInternationalFormat = (phone: string): string => {
+  let cleaned = normalizePhone(phone);
+
+  // Si le numéro commence par 00, on remplace par +
+  if (cleaned.startsWith("00")) {
+    cleaned = "+" + cleaned.substring(2);
+  }
+  // Si le numéro commence par 0 et a 10 chiffres (cas algérien), on enlève le 0 et ajoute +213
+  else if (cleaned.startsWith("0") && cleaned.length === 10) {
+    cleaned = "+213" + cleaned.substring(1);
+  }
+  // Si le numéro commence par 213 sans +, on ajoute +
+  else if (cleaned.startsWith("213") && !cleaned.startsWith("+")) {
+    cleaned = "+" + cleaned;
+  }
+  // Sinon on laisse tel quel (on suppose que l'utilisateur a mis un format international valide)
+
+  return cleaned;
+};
+
+/**
  * Generates a WhatsApp share link for debt reminder or invoice.
+ * Convertit automatiquement le numéro au format international.
  */
 export function generateWhatsAppLink(phone: string, message: string): string {
-  // Clean phone number: keep only numbers
-  const cleanedPhone = phone.replace(/\D/g, "");
-  return `https://wa.me/${cleanedPhone}?text=${encodeURIComponent(message)}`;
+  const internationalNumber = toInternationalFormat(phone);
+  const encodedMessage = encodeURIComponent(message);
+  return `https://wa.me/${internationalNumber}?text=${encodedMessage}`;
 }
 
 /**
@@ -137,6 +174,7 @@ export function getTransactionsWithBalancesForClient(
 
 /**
  * Generates an SMS link for debt reminder.
+ * On conserve le numéro nettoyé (sans conversion internationale).
  */
 export function generateSMSLink(phone: string, message: string): string {
   const cleanedPhone = phone.replace(/\D/g, "");

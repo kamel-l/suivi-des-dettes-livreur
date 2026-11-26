@@ -172,9 +172,10 @@ export default function App() {
     localStorage.setItem("livreur-dette-default-due-offset", defaultDueOffsetDays.toString());
   }, [defaultDueOffsetDays]);
 
-  // Action Handlers
+  // ─── Action Handlers ───────────────────────────────────────────────────────
+
   const handleAddClient = (name: string, phone: string, notes?: string): Client => {
-    // Check if duplicate phone exists
+    // Normalize phone for duplicate check (remove spaces)
     const trimmedPhone = phone.replace(/\s+/g, "");
     const duplicate = clients.find(
       (c) => c.phone.replace(/\s+/g, "") === trimmedPhone
@@ -197,6 +198,15 @@ export default function App() {
 
     setClients((prev) => [newClient, ...prev]);
     return newClient;
+  };
+
+  // ─── NOUVEAU : Gestionnaire de mise à jour des clients ──────────────────
+  const handleUpdateClient = (clientId: string, updates: Partial<Client>) => {
+    setClients((prev) =>
+      prev.map((c) =>
+        c.id === clientId ? { ...c, ...updates } : c
+      )
+    );
   };
 
   const handleAddTransaction = (
@@ -417,7 +427,7 @@ export default function App() {
           </button>
         </nav>
 
-        {/* Client details modal sliding overlays */}
+        {/* Client details modal sliding overlays ─ avec nouvelles props */}
         <AnimatePresence>
           {currentDetailsClient && (
             <ClientDetailsModal
@@ -427,6 +437,8 @@ export default function App() {
               repayments={repayments}
               currency={currency}
               onAddRepayment={handleAddRepayment}
+              onUpdateClient={handleUpdateClient}          // ← NOUVEAU
+              allClients={clients}                         // ← NOUVEAU
               lang={lang}
             />
           )}

@@ -108,44 +108,39 @@ export default function LoginScreen({
   };
 
   return (
-    <div className="bg-slate-100 min-h-screen flex items-center justify-center selection:bg-amber-100 font-sans p-4">
+    <div className="bg-slate-50 min-h-screen flex items-center justify-center font-sans p-4">
       {/* Device frame container imitating smartphone layout */}
-      <div className="w-full max-w-sm bg-slate-900 text-white rounded-3xl shadow-2xl flex flex-col justify-between p-6 border border-slate-800 min-h-[600px] relative overflow-hidden">
-        
-        {/* Abstract Background Ambient Accents */}
-        <div className="absolute top-0 left-0 w-32 h-32 bg-amber-500/15 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl" />
-
+      <div className="w-full max-w-sm bg-slate-900 text-white rounded-3xl flex flex-col justify-between p-6 min-h-[600px] relative overflow-hidden">
         {/* Header toolbar */}
         <div className={`flex items-center justify-between z-10 ${isRtl ? "flex-row-reverse" : ""}`}>
-          <div className="flex items-center space-x-1.5 text-xs text-amber-500 font-bold bg-amber-500/15 py-1 px-2.5 rounded-full border border-amber-500/20">
+          <div className="flex items-center space-x-1.5 text-xs text-teal-400 font-semibold bg-teal-500/10 py-1 px-2.5 rounded-full">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span className="uppercase tracking-wider text-[10px]">{t.tagline}</span>
+            <span className="text-[10px]">{t.tagline}</span>
           </div>
 
           <button
             type="button"
             onClick={toggleLanguage}
-            className="flex items-center space-x-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs py-1 px-3 rounded-full cursor-pointer transition border border-slate-700"
+            className="flex items-center space-x-1 bg-white/10 hover:bg-white/15 text-slate-200 font-medium text-xs py-1 px-3 rounded-full cursor-pointer transition"
           >
-            <Languages className="w-3.5 h-3.5 text-amber-500" />
-            <span className="font-mono text-[11px]">{lang === "ar" ? "Français" : "العربية"}</span>
+            <Languages className="w-3.5 h-3.5 text-teal-400" />
+            <span className="text-[11px]">{lang === "ar" ? "Français" : "العربية"}</span>
           </button>
         </div>
 
         {/* Central Core Logo & Title content */}
         <div className="text-center my-4 z-10 space-y-2">
-          <div className="bg-amber-500 text-slate-950 p-3.5 rounded-2xl inline-block mx-auto shadow-lg shadow-amber-500/20">
+          <div className="bg-teal-500 text-slate-950 p-3.5 rounded-2xl inline-block mx-auto">
             <Unlock className="w-6 h-6 stroke-[2.5]" />
           </div>
-          
+
           <h1 className="text-xl font-extrabold text-white tracking-wide">
             {t.appName}
           </h1>
 
           <div className="space-y-1">
-            <h2 className="text-sm font-bold text-amber-400">
-              {isSetupMode ? (t.setupAuthTitle || "Créer un compte") : (t.loginTitle || "Connexion Réclamée")}
+            <h2 className="text-sm font-bold text-teal-400">
+              {isSetupMode ? (t.setupAuthTitle || "Créer un compte") : (t.loginTitle || "Connexion")}
             </h2>
             <p className="text-[11.5px] text-slate-400 max-w-[270px] mx-auto leading-relaxed">
               {isSetupMode 
@@ -161,9 +156,9 @@ export default function LoginScreen({
             <motion.div
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-rose-500/15 border border-rose-500/20 rounded-xl p-2.5 mb-4 text-center text-xs text-rose-400 font-semibold leading-snug"
+              className="bg-rose-500/10 rounded-xl p-2.5 mb-4 text-center text-xs text-rose-400 font-medium leading-snug"
             >
-              ⚠️ {errorMessage}
+              {errorMessage}
             </motion.div>
           )}
 
@@ -172,7 +167,7 @@ export default function LoginScreen({
             <div className="space-y-1">
               <label 
                 htmlFor="login-username" 
-                className={`block text-[10px] font-bold text-slate-400 uppercase tracking-wider ${isRtl ? "text-right" : "text-left"}`}
+                className={`block text-[10px] font-semibold text-slate-400 ${isRtl ? "text-right" : "text-left"}`}
               >
                 {t.usernameLabel || "Nom d'utilisateur"}
               </label>
@@ -186,7 +181,7 @@ export default function LoginScreen({
                   placeholder={lang === "ar" ? "أدخل اسم المستخدم" : "Ex: slimane_alger"}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className={`w-full bg-slate-850 border border-slate-750 text-slate-100 rounded-xl py-2.5 text-xs outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all font-medium ${
+                  className={`w-full bg-white/5 border border-white/10 text-slate-100 rounded-xl py-2.5 text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all font-medium ${
                     isRtl ? "text-right pr-9 pl-3" : "text-left pl-9 pr-3"
                   }`}
                   autoComplete="username"
@@ -198,7 +193,7 @@ export default function LoginScreen({
             <div className="space-y-1">
               <label 
                 htmlFor="login-password" 
-                className={`block text-[10px] font-bold text-slate-400 uppercase tracking-wider ${isRtl ? "text-right" : "text-left"}`}
+                className={`block text-[10px] font-semibold text-slate-400 ${isRtl ? "text-right" : "text-left"}`}
               >
                 {t.passwordLabel || "Mot de passe"}
               </label>
@@ -212,7 +207,7 @@ export default function LoginScreen({
                   placeholder={lang === "ar" ? "••••••" : "••••••"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full bg-slate-850 border border-slate-750 text-slate-100 rounded-xl py-2.5 text-xs outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all font-mono tracking-widest ${
+                  className={`w-full bg-white/5 border border-white/10 text-slate-100 rounded-xl py-2.5 text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all tracking-widest ${
                     isRtl ? "text-right pr-9 pl-10" : "text-left pl-9 pr-10"
                   }`}
                   autoComplete="current-password"
@@ -232,7 +227,7 @@ export default function LoginScreen({
               <div className="space-y-1">
                 <label 
                   htmlFor="login-confirm" 
-                  className={`block text-[10px] font-bold text-slate-400 uppercase tracking-wider ${isRtl ? "text-right" : "text-left"}`}
+                  className={`block text-[10px] font-semibold text-slate-400 ${isRtl ? "text-right" : "text-left"}`}
                 >
                   {t.confirmPassword || "Confirmer le mot de passe"}
                 </label>
@@ -246,8 +241,8 @@ export default function LoginScreen({
                     placeholder={lang === "ar" ? "••••••" : "••••••"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className={`w-full bg-slate-850 border border-slate-755 text-slate-100 rounded-xl py-2.5 text-xs outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all font-mono tracking-widest ${
-                      isRtl ? "text-right pr-9 pr-9 pl-10" : "text-left pl-9 pr-10"
+                    className={`w-full bg-white/5 border border-white/10 text-slate-100 rounded-xl py-2.5 text-xs outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all tracking-widest ${
+                      isRtl ? "text-right pr-9 pl-10" : "text-left pl-9 pr-10"
                     }`}
                     autoComplete="new-password"
                   />
@@ -260,7 +255,7 @@ export default function LoginScreen({
               <button
                 type="submit"
                 id="login-submit-btn"
-                className="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-slate-950 font-bold text-xs py-3 rounded-2xl transition cursor-pointer flex items-center justify-center space-x-2 shadow-lg shadow-amber-500/10"
+                className="w-full bg-teal-500 hover:bg-teal-600 active:scale-[0.98] text-slate-950 font-bold text-xs py-3 rounded-2xl transition cursor-pointer flex items-center justify-center space-x-2"
               >
                 <span>
                   {isSetupMode 
@@ -274,10 +269,9 @@ export default function LoginScreen({
 
         {/* Footer info text */}
         <div className="text-center text-[10px] text-slate-500 mt-4 z-10 space-y-1">
-          <div>📍 {lang === "ar" ? "جميع البيانات مشفرة ومحفوظة داخلياً" : "Identifiants & données chiffrées localement"}</div>
-          <div className="text-[9px] text-amber-500/60">{lang === "ar" ? "لا نرسل معلوماتك لأي سيرفر خارجي" : "Zéro communication serveur pour votre vie privée"}</div>
+          <div>{lang === "ar" ? "جميع البيانات مشفرة ومحفوظة داخلياً" : "Identifiants & données chiffrées localement"}</div>
+          <div className="text-[9px] text-teal-500/70">{lang === "ar" ? "لا نرسل معلوماتك لأي سيرفر خارجي" : "Zéro communication serveur pour votre vie privée"}</div>
         </div>
-
       </div>
     </div>
   );

@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useRef } from "react";
-import { Client, Transaction, Repayment, BackupData } from "../types";
-import { validateBackupData, formatDate } from "../utils";
+import { Client, Product, Transaction, Repayment, BackupData } from "../types";
+import { validateBackupData } from "../utils";
 import {
   ShieldCheck,
   Download,
@@ -15,7 +15,7 @@ import {
   Trash2,
   FileCheck,
   AlertTriangle,
-  RefreshCw,
+  Settings2,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Language, translations } from "../translations";
@@ -24,6 +24,7 @@ interface BackupProps {
   clients: Client[];
   transactions: Transaction[];
   repayments: Repayment[];
+  products: Product[];
   onRestore: (data: BackupData) => void;
   onClearAll: () => void;
   lang: Language;
@@ -40,6 +41,7 @@ export default function BackupSettings({
   clients,
   transactions,
   repayments,
+  products,
   onRestore,
   onClearAll,
   lang,
@@ -114,8 +116,9 @@ export default function BackupSettings({
   // Generate current backup data
   const generateBackupPayload = (): BackupData => {
     return {
-      version: 1,
+      version: 2,
       clients,
+      products,
       transactions,
       repayments,
       exportDate: new Date().toISOString(),
@@ -231,20 +234,20 @@ export default function BackupSettings({
   return (
     <motion.div
       id="backup-settings-container"
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.2 }}
-      className="space-y-5"
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.15 }}
+      className="space-y-4"
       dir={isRtl ? "rtl" : "ltr"}
     >
       {/* Informative Security Banner */}
-      <div className={`bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-start ${isRtl ? "space-x-reverse" : "space-x-3"} text-white text-left`}>
-        <div className="bg-amber-500/10 text-amber-500 p-2.5 rounded-xl border border-amber-550/20">
-          <ShieldCheck className="w-5 h-5 text-amber-500" />
+      <div className={`bg-slate-900 rounded-2xl p-4 flex items-start ${isRtl ? "space-x-reverse" : "space-x-3"} text-white text-left`}>
+        <div className="bg-teal-500/15 text-teal-400 p-2.5 rounded-xl">
+          <ShieldCheck className="w-5 h-5" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+          <h3 className="text-xs font-bold text-teal-400">
             {t.securityTagline}
           </h3>
           <p className="text-xs text-slate-300 leading-relaxed text-left">
@@ -254,13 +257,13 @@ export default function BackupSettings({
       </div>
 
       {/* Configuration Section for Reminders and Due Dates */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-4.5 space-y-4 shadow-xs text-left">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-4 text-left">
         <div className={`flex items-center ${isRtl ? "space-x-reverse" : "space-x-2"} border-b border-slate-100 pb-2.5 mb-1`}>
-          <div className="bg-amber-100 text-amber-705 p-1.5 rounded-lg">
-            <RefreshCw className="w-4 h-4 text-amber-600 animate-spin-slow" />
+          <div className="bg-slate-100 text-slate-600 p-1.5 rounded-lg">
+            <Settings2 className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+            <h3 className="text-xs font-bold text-slate-800">
               {t.reminderSettings}
             </h3>
             <p className="text-[10px] text-slate-400">
@@ -279,7 +282,7 @@ export default function BackupSettings({
               id="settings-due-offset-select"
               value={defaultDueOffsetDays}
               onChange={(e) => setDefaultDueOffsetDays(parseInt(e.target.value, 10))}
-              className="w-full bg-slate-50 border border-slate-205 text-slate-800 rounded-xl py-2 px-3 text-xs outline-none focus:ring-1 focus:ring-amber-500 font-semibold"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2 px-3 text-xs outline-none focus:ring-1 focus:ring-teal-500 font-medium"
             >
               <option value={0}>{t.noDueDate}</option>
               <option value={3}>3 {t.daysDefaultTerm}</option>
@@ -298,7 +301,7 @@ export default function BackupSettings({
               id="settings-reminder-offset-select"
               value={reminderOffsetDays}
               onChange={(e) => setReminderOffsetDays(parseInt(e.target.value, 10))}
-              className="w-full bg-slate-50 border border-slate-205 text-slate-800 rounded-xl py-2 px-3 text-xs outline-none focus:ring-1 focus:ring-amber-500 font-semibold"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2 px-3 text-xs outline-none focus:ring-1 focus:ring-teal-500 font-medium"
             >
               <option value={1}>1 {t.daysBeforeDue}</option>
               <option value={2}>2 {t.daysBeforeDue}</option>
@@ -310,8 +313,8 @@ export default function BackupSettings({
       </div>
 
       {/* Backup generation card */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-4.5 space-y-4 shadow-xs text-left animate-fade-in">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-4 text-left">
+        <h3 className="text-xs font-bold text-slate-500">
           {t.backupTitle}
         </h3>
 
@@ -320,12 +323,12 @@ export default function BackupSettings({
           <button
             onClick={handleDownloadBackup}
             id="download-backup-json-btn"
-            className="flex flex-col items-center justify-center space-y-2 bg-slate-50 border border-slate-250 hover:border-amber-400 p-4 rounded-xl transition cursor-pointer"
+            className="flex flex-col items-center justify-center space-y-2 bg-slate-50 hover:bg-slate-100 p-4 rounded-xl transition cursor-pointer"
           >
-            <div className="bg-amber-100 text-amber-700 p-2.5 rounded-full">
-              <Download className="w-5 h-5 text-amber-600" />
+            <div className="bg-teal-100 text-teal-700 p-2.5 rounded-full">
+              <Download className="w-5 h-5" />
             </div>
-            <span className="text-xs font-bold text-slate-705 text-center leading-tight">
+            <span className="text-xs font-semibold text-slate-700 text-center leading-tight">
               {t.backupFileBtn}
             </span>
             <span className="text-[9px] text-slate-400 text-center">{t.backupFileDesc}</span>
@@ -335,12 +338,12 @@ export default function BackupSettings({
           <button
             onClick={handleCopyTextCode}
             id="copy-raw-text-backup-btn"
-            className="flex flex-col items-center justify-center space-y-2 bg-slate-50 border border-slate-255 hover:border-amber-400 p-4 rounded-xl transition cursor-pointer"
+            className="flex flex-col items-center justify-center space-y-2 bg-slate-50 hover:bg-slate-100 p-4 rounded-xl transition cursor-pointer"
           >
-            <div className="bg-amber-100 text-amber-700 p-2.5 rounded-full">
-              {copied ? <ClipboardCheck className="w-5 h-5 text-emerald-600 animate-bounce" /> : <Copy className="w-5 h-5 text-amber-600" />}
+            <div className="bg-teal-100 text-teal-700 p-2.5 rounded-full">
+              {copied ? <ClipboardCheck className="w-5 h-5 text-teal-600" /> : <Copy className="w-5 h-5" />}
             </div>
-            <span className="text-xs font-bold text-slate-705 text-center leading-tight">
+            <span className="text-xs font-semibold text-slate-700 text-center leading-tight">
               {t.backupCodeBtn}
             </span>
             <span className="text-[9px] text-slate-400 text-center">{t.backupCodeDesc}</span>
@@ -349,21 +352,21 @@ export default function BackupSettings({
       </div>
 
       {/* Restore generation card */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-4.5 space-y-4 shadow-xs text-left font-sans">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-4 text-left">
+        <h3 className="text-xs font-bold text-slate-500">
           {t.restoreTitle}
         </h3>
 
         {/* Upload File Input */}
         <div className="space-y-1">
-          <label className="block text-[10px] text-slate-400 font-bold uppercase">
+          <label className="block text-[10px] text-slate-400 font-semibold">
             {t.importJsonLabel}
           </label>
           <div className={`flex items-center ${isRtl ? "space-x-reverse" : "space-x-2.5"}`}>
             <button
               onClick={() => fileInputRef.current?.click()}
               id="trigger-file-upload-btn"
-              className="flex items-center space-x-1.5 bg-slate-900 text-white font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer"
+              className="flex items-center space-x-1.5 bg-slate-900 text-white font-semibold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer"
             >
               <Upload className="w-4 h-4" />
               <span>{t.chooseFileBtn}</span>
@@ -381,7 +384,7 @@ export default function BackupSettings({
 
         {/* Text Area Code Paste Restorer */}
         <form onSubmit={handleRestoreFromTextCode} className="space-y-2 pt-1 border-t border-slate-100">
-          <label htmlFor="restore-code-paste" className="block text-[10px] text-slate-400 font-bold uppercase">
+          <label htmlFor="restore-code-paste" className="block text-[10px] text-slate-400 font-semibold">
             {t.restoreCodeLabel}
           </label>
           <textarea
@@ -389,28 +392,28 @@ export default function BackupSettings({
             placeholder={t.restoreCodePlaceholder}
             value={inputTextCode}
             onChange={(e) => setInputTextCode(e.target.value)}
-            className="w-full bg-slate-55 border border-slate-200 rounded-xl p-2.5 text-[11px] font-mono text-slate-800 outline-none focus:ring-1 focus:ring-amber-500 h-20 resize-none text-left"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-[11px] text-slate-800 outline-none focus:ring-1 focus:ring-teal-500 h-20 resize-none text-left"
           />
           <button
             type="submit"
             id="restore-pasted-data-btn"
-            className="w-full bg-slate-900 text-white font-bold text-xs py-2 rounded-xl flex items-center justify-center space-x-1 hover:bg-slate-800 cursor-pointer transition text-center"
+            className="w-full bg-slate-900 text-white font-semibold text-xs py-2 rounded-xl flex items-center justify-center space-x-1 hover:bg-slate-800 cursor-pointer transition text-center"
           >
-            <FileCheck className="w-4 h-4 text-amber-400" />
+            <FileCheck className="w-4 h-4" />
             <span>{t.restorePastedBtn}</span>
           </button>
         </form>
       </div>
 
           {/* Username / Password Security Settings Card */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-4.5 space-y-4 shadow-xs text-left">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-4 text-left">
         <div className={`flex items-center justify-between ${isRtl ? "flex-row-reverse" : ""}`}>
           <div className={`flex items-center ${isRtl ? "space-x-reverse" : "space-x-2"}`}>
-            <div className="bg-amber-100 text-amber-700 p-1.5 rounded-lg">
-              <ShieldCheck className="w-4 h-4 text-amber-600" />
+            <div className="bg-slate-100 text-slate-600 p-1.5 rounded-lg">
+              <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              <h3 className="text-xs font-bold text-slate-800">
                 {t.authInfo}
               </h3>
               <p className="text-[10px] text-slate-400">
@@ -419,10 +422,10 @@ export default function BackupSettings({
             </div>
           </div>
 
-          <span className={`text-[10px] font-bold py-0.5 px-2 rounded-md ${
-            (storedUser && storedPass) ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
+          <span className={`text-[10px] font-semibold py-0.5 px-2 rounded-md ${
+            (storedUser && storedPass) ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-500"
           }`}>
-            {(storedUser && storedPass) ? (lang === "ar" ? "✓ نشط" : "✓ Activé") : (lang === "ar" ? "تعطيل حماية" : "Désactivé")}
+            {(storedUser && storedPass) ? (lang === "ar" ? "نشط" : "Activé") : (lang === "ar" ? "معطّل" : "Désactivé")}
           </span>
         </div>
 
@@ -431,14 +434,14 @@ export default function BackupSettings({
             <button
               onClick={() => setAuthChangeActive(true)}
               id="settings-trigger-modify-auth"
-              className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-xl font-bold cursor-pointer transition text-center"
+              className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-xl font-semibold cursor-pointer transition text-center"
             >
               {t.changeAuth}
             </button>
             <button
               onClick={handleDisableAuth}
               id="settings-disable-auth-btn"
-              className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 py-2 rounded-xl font-bold cursor-pointer transition border border-rose-100 text-center"
+              className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 py-2 rounded-xl font-semibold cursor-pointer transition text-center"
             >
               {t.disableAuth}
             </button>
@@ -448,7 +451,7 @@ export default function BackupSettings({
         {(!(storedUser && storedPass) || authChangeActive) && (
           <form onSubmit={handleSaveAuthSettings} className="space-y-3 pt-2 border-t border-slate-100">
             <div className={`flex items-center justify-between`}>
-              <span className="text-xs font-bold text-slate-600">
+              <span className="text-xs font-semibold text-slate-600">
                 {authChangeActive ? t.changeAuth : t.setupAuthTitle}
               </span>
               {authChangeActive && (
@@ -460,7 +463,7 @@ export default function BackupSettings({
                     setNewSettingsPass("");
                     setConfirmSettingsPass("");
                   }}
-                  className="text-xs text-slate-400 hover:text-slate-605"
+                  className="text-xs text-slate-400 hover:text-slate-600"
                 >
                   {lang === "ar" ? "إلغاء التغيير" : "Annuler"}
                 </button>
@@ -469,7 +472,7 @@ export default function BackupSettings({
 
             <div className="space-y-2.5">
               <div className="space-y-1">
-                <label htmlFor="settings-new-user-input" className="block text-[9px] text-slate-400 font-bold uppercase">
+                <label htmlFor="settings-new-user-input" className="block text-[9px] text-slate-400 font-semibold">
                   {t.usernameLabel}
                 </label>
                 <input
@@ -478,13 +481,13 @@ export default function BackupSettings({
                   placeholder={lang === "ar" ? "مثال: سفيان" : "Ex: slimane"}
                   value={newSettingsUser}
                   onChange={(e) => setNewSettingsUser(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-sm font-bold py-1.5 px-3 rounded-lg outline-none focus:ring-1 focus:ring-amber-500 text-left"
+                  className="w-full bg-slate-50 border border-slate-200 text-sm font-semibold py-1.5 px-3 rounded-lg outline-none focus:ring-1 focus:ring-teal-500 text-left"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <label htmlFor="settings-new-pass-input" className="block text-[9px] text-slate-400 font-bold uppercase">
+                  <label htmlFor="settings-new-pass-input" className="block text-[9px] text-slate-400 font-semibold">
                     {t.passwordLabel}
                   </label>
                   <input
@@ -493,12 +496,12 @@ export default function BackupSettings({
                     placeholder="••••"
                     value={newSettingsPass}
                     onChange={(e) => setNewSettingsPass(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-center text-sm font-bold tracking-widest py-1.5 px-2 rounded-lg outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full bg-slate-50 border border-slate-200 text-center text-sm font-semibold tracking-widest py-1.5 px-2 rounded-lg outline-none focus:ring-1 focus:ring-teal-500"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="settings-confirm-pass-input" className="block text-[9px] text-slate-400 font-bold uppercase">
+                  <label htmlFor="settings-confirm-pass-input" className="block text-[9px] text-slate-400 font-semibold">
                     {t.confirmPassword}
                   </label>
                   <input
@@ -507,7 +510,7 @@ export default function BackupSettings({
                     placeholder="••••"
                     value={confirmSettingsPass}
                     onChange={(e) => setConfirmSettingsPass(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-center text-sm font-bold tracking-widest py-1.5 px-2 rounded-lg outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full bg-slate-50 border border-slate-200 text-center text-sm font-semibold tracking-widest py-1.5 px-2 rounded-lg outline-none focus:ring-1 focus:ring-teal-500"
                   />
                 </div>
               </div>
@@ -516,7 +519,7 @@ export default function BackupSettings({
             <button
               type="submit"
               id="settings-confirm-new-auth-btn"
-              className="w-full bg-slate-900 text-white font-bold text-xs py-2 rounded-xl flex items-center justify-center space-x-1 hover:bg-slate-800 transition cursor-pointer"
+              className="w-full bg-slate-900 text-white font-semibold text-xs py-2 rounded-xl flex items-center justify-center space-x-1 hover:bg-slate-800 transition cursor-pointer"
             >
               <span>{t.saveAuth}</span>
             </button>
@@ -526,23 +529,21 @@ export default function BackupSettings({
 
       {/* Dynamic Notifications */}
       {successMsg && (
-        <p id="backup-success-toast" className={`text-xs text-emerald-600 font-semibold bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex items-start ${isRtl ? "space-x-reverse" : "space-x-1.5"} animate-pulse-slow`}>
-          <span>✅</span>
+        <p id="backup-success-toast" className={`text-xs text-teal-700 font-medium bg-teal-50 p-3 rounded-xl flex items-start ${isRtl ? "space-x-reverse" : "space-x-1.5"}`}>
           <span>{successMsg}</span>
         </p>
       )}
 
       {errorMsg && (
-        <p id="backup-error-toast" className={`text-xs text-rose-500 font-semibold bg-rose-50 border border-rose-100 p-3 rounded-xl flex items-start ${isRtl ? "space-x-reverse" : "space-x-1.5"}`}>
-          <span>⚠️</span>
+        <p id="backup-error-toast" className={`text-xs text-rose-600 font-medium bg-rose-50 p-3 rounded-xl flex items-start ${isRtl ? "space-x-reverse" : "space-x-1.5"}`}>
           <span>{errorMsg}</span>
         </p>
       )}
 
       {/* Danger Reset Zone */}
-      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4.5 space-y-3 text-left">
-        <h4 className={`text-xs font-bold text-rose-800 uppercase flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1.5`}>
-          <AlertTriangle className="w-4 h-4 text-rose-600" />
+      <div className="bg-rose-50 rounded-2xl p-4.5 space-y-3 text-left">
+        <h4 className={`text-xs font-bold text-rose-800 flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1.5`}>
+          <AlertTriangle className="w-4 h-4" />
           <span>{t.dangerZone}</span>
         </h4>
 
@@ -550,17 +551,17 @@ export default function BackupSettings({
           <button
             onClick={() => setShowConfirmReset(true)}
             id="trigger-confirm-reset-btn"
-            className="w-full border border-rose-300 bg-white text-rose-700 hover:bg-rose-100 active:bg-rose-200 font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer"
+            className="w-full border border-rose-200 bg-white text-rose-700 hover:bg-rose-100 font-semibold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer"
           >
             {t.clearDatabaseBtn}
           </button>
         ) : (
-          <div className="space-y-3 p-3 bg-white border border-rose-200 rounded-xl">
+          <div className="space-y-3 p-3 bg-white rounded-xl">
             <p className="text-[11px] text-rose-700 leading-snug">
               {t.dangerDesc}
             </p>
             <div className="space-y-2">
-              <label htmlFor="confirm-delete-phrase" className="block text-[10px] text-slate-650 font-bold">
+              <label htmlFor="confirm-delete-phrase" className="block text-[10px] text-slate-600 font-semibold">
                 {t.confirmResetLabel}
               </label>
               <div className={`flex ${isRtl ? "space-x-reverse" : ""} gap-2 text-xs`}>
@@ -570,12 +571,12 @@ export default function BackupSettings({
                   placeholder={t.confirmResetPlaceholder}
                   value={confirmValue}
                   onChange={(e) => setConfirmValue(e.target.value)}
-                  className="flex-1 bg-slate-50 border border-rose-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-rose-600 outline-none text-left"
+                  className="flex-1 bg-slate-50 border border-rose-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 outline-none text-left"
                 />
                 <button
                   onClick={handleResetData}
                   id="final-reset-data-btn"
-                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-lg transition"
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-3 py-1.5 rounded-lg transition"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BackupData, Client, Repayment, Transaction } from "./types";
+import { BackupData, Client, Product, Repayment, Transaction } from "./types";
 
 /**
  * Formats an amount with a selected currency symbol.
@@ -47,12 +47,49 @@ export function formatDate(dateString: string, includeTime: boolean = false): st
 }
 
 /**
+ * Normalise un numéro de téléphone en supprimant espaces et caractères spéciaux.
+ * Conserve le signe '+' s'il est présent.
+ */
+export const normalizePhone = (phone: string): string => {
+  return phone.replace(/\s/g, "").replace(/[^0-9+]/g, "");
+};
+
+/**
+ * Convertit un numéro de téléphone au format international pour WhatsApp.
+ * Gère les cas :
+ * - 0XXXXXXXXX (Algérie) → +213XXXXXXXXX
+ * - 00XXX → +XXX
+ * - 213XXX → +213XXX
+ * - +213XXX → conservé
+ */
+export const toInternationalFormat = (phone: string): string => {
+  let cleaned = normalizePhone(phone);
+
+  // Si le numéro commence par 00, on remplace par +
+  if (cleaned.startsWith("00")) {
+    cleaned = "+" + cleaned.substring(2);
+  }
+  // Si le numéro commence par 0 et a 10 chiffres (cas algérien), on enlève le 0 et ajoute +213
+  else if (cleaned.startsWith("0") && cleaned.length === 10) {
+    cleaned = "+213" + cleaned.substring(1);
+  }
+  // Si le numéro commence par 213 sans +, on ajoute +
+  else if (cleaned.startsWith("213") && !cleaned.startsWith("+")) {
+    cleaned = "+" + cleaned;
+  }
+  // Sinon on laisse tel quel (on suppose que l'utilisateur a mis un format international valide)
+
+  return cleaned;
+};
+
+/**
  * Generates a WhatsApp share link for debt reminder or invoice.
+ * Convertit automatiquement le numéro au format international.
  */
 export function generateWhatsAppLink(phone: string, message: string): string {
-  // Clean phone number: keep only numbers
-  const cleanedPhone = phone.replace(/\D/g, "");
-  return `https://wa.me/${cleanedPhone}?text=${encodeURIComponent(message)}`;
+  const internationalNumber = toInternationalFormat(phone);
+  const encodedMessage = encodeURIComponent(message);
+  return `https://wa.me/${internationalNumber}?text=${encodedMessage}`;
 }
 
 /**
@@ -61,6 +98,7 @@ export function generateWhatsAppLink(phone: string, message: string): string {
 export function validateBackupData(data: any): data is BackupData {
   if (!data || typeof data !== "object") return false;
   if (!Array.isArray(data.clients)) return false;
+  if (data.products !== undefined && !Array.isArray(data.products)) return false;
   if (!Array.isArray(data.transactions)) return false;
   if (!Array.isArray(data.repayments)) return false;
   return true;
@@ -101,6 +139,74 @@ export interface TransactionWithBalance extends Transaction {
   allocatedRemainingBalance: number;
 }
 
+export interface ClientRiskAssessment {
+  isAtRisk: boolean;
+  reason: string;
+  daysSinceLastActivity: number;
+  debtAgeDays: number;
+}
+
+export function assessClientRisk(
+  client: Client,
+  transactions: Transaction[],
+  repayments: Repayment[],
+  thresholdDays: number = 14,
+  thresholdAmount: number = 15000
+): ClientRiskAssessment {
+  const clientTransactions = transactions.filter((t) => t.clientId === client.id);
+  const clientRepayments = repayments.filter((r) => r.clientId === client.id);
+  const totalDelivered = clientTransactions.reduce((acc, t) => acc + t.totalAmount, 0);
+  const totalPaid = clientTransactions.reduce((acc, t) => acc + t.paidAmount, 0) + clientRepayments.reduce((acc, r) => acc + r.amount, 0);
+  const debt = Math.max(0, totalDelivered - totalPaid);
+
+  const lastActivityDate = clientTransactions.length > 0
+    ? clientTransactions[clientTransactions.length - 1].date
+    : client.createdAt;
+  const daysSinceLastActivity = Math.max(0, Math.floor((Date.now() - new Date(lastActivityDate).getTime()) / (1000 * 60 * 60 * 24)));
+
+  const oldestDebtDate = clientTransactions.length > 0
+    ? clientTransactions.reduce((oldest, tx) => {
+        const txDate = new Date(tx.date).getTime();
+        return txDate < oldest ? txDate : oldest;
+      }, new Date(clientTransactions[0].date).getTime())
+    : new Date(client.createdAt).getTime();
+  const debtAgeDays = Math.max(0, Math.floor((Date.now() - oldestDebtDate) / (1000 * 60 * 60 * 24)));
+
+  if (debt >= thresholdAmount && daysSinceLastActivity >= thresholdDays) {
+    return {
+      isAtRisk: true,
+      reason: "Dette élevée et retard important",
+      daysSinceLastActivity,
+      debtAgeDays,
+    };
+  }
+
+  if (debt >= thresholdAmount) {
+    return {
+      isAtRisk: true,
+      reason: "Dette élevée",
+      daysSinceLastActivity,
+      debtAgeDays,
+    };
+  }
+
+  if (daysSinceLastActivity >= thresholdDays) {
+    return {
+      isAtRisk: true,
+      reason: "Retard de paiement",
+      daysSinceLastActivity,
+      debtAgeDays,
+    };
+  }
+
+  return {
+    isAtRisk: false,
+    reason: "À jour",
+    daysSinceLastActivity,
+    debtAgeDays,
+  };
+}
+
 /**
  * Calculates remaining balances of transactions by allocating repayments chronologically (FIFO).
  */
@@ -137,6 +243,7 @@ export function getTransactionsWithBalancesForClient(
 
 /**
  * Generates an SMS link for debt reminder.
+ * On conserve le numéro nettoyé (sans conversion internationale).
  */
 export function generateSMSLink(phone: string, message: string): string {
   const cleanedPhone = phone.replace(/\D/g, "");

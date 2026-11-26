@@ -13,14 +13,12 @@ import {
   DollarSign,
   MessageSquare,
   TrendingDown,
-  ChevronRight,
-  PlusSquare,
-  MinusSquare,
-  ShieldAlert,
-  Save,
+  ShoppingBag,
+  Copy,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { Language, translations } from "../translations";
+import type { DuplicateSaleData } from "./NewTransactionForm";
 
 interface ClientDetailsModalProps {
   client: Client | null;
@@ -29,7 +27,8 @@ interface ClientDetailsModalProps {
   repayments: Repayment[];
   currency: string;
   onAddRepayment: (clientId: string, amount: number, notes?: string) => void;
-  onDeleteClientData?: (clientId: string) => void; 
+  onDeleteClientData?: (clientId: string) => void;
+  onDuplicateSale?: (data: DuplicateSaleData) => void;
   lang: Language;
 }
 
@@ -40,6 +39,7 @@ export default function ClientDetailsModal({
   repayments,
   currency,
   onAddRepayment,
+  onDuplicateSale,
   lang,
 }: ClientDetailsModalProps) {
   if (!client) return null;
@@ -53,10 +53,17 @@ export default function ClientDetailsModal({
   const [showRepayForm, setShowRepayForm] = useState<boolean>(false);
   const [success, setSuccess] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [copiedMessage, setCopiedMessage] = useState<string>("");
 
   const stats = getClientStats(client, transactions, repayments);
   const clientTransactions = transactions.filter((t) => t.clientId === client.id);
   const clientRepayments = repayments.filter((r) => r.clientId === client.id);
+  const recentPurchases = [...clientTransactions]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 4);
+  const averagePurchase = recentPurchases.length
+    ? recentPurchases.reduce((sum, tx) => sum + tx.totalAmount, 0) / recentPurchases.length
+    : 0;
 
   // Compute FIFO allocated balances for each transaction
   const transactionsWithBalances = getTransactionsWithBalancesForClient(clientTransactions, clientRepayments);
@@ -130,8 +137,31 @@ export default function ClientDetailsModal({
 
   const whatsappUrl = generateWhatsAppLink(client.phone, getWhatsAppMessage());
 
+  const handleDuplicateLastSale = () => {
+    const lastSale = [...clientTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+    if (!lastSale || !onDuplicateSale) return;
+
+    onDuplicateSale({
+      clientId: client.id,
+      clientName: client.name,
+      clientPhone: client.phone,
+      description: lastSale.description,
+      totalAmount: lastSale.totalAmount,
+      paidAmount: lastSale.paidAmount,
+      dueDate: lastSale.dueDate,
+    });
+    onClose();
+
+    const message = lang === "ar"
+      ? `تم فتح نموذج جديد مع بيانات آخر بيع هذا الزبون.`
+      : `Le formulaire a été ouvert avec les données de la dernière vente.`;
+
+    setCopiedMessage(message);
+    setTimeout(() => setCopiedMessage(""), 1400);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-xs">
       {/* Background closer */}
       <div className="absolute inset-0" onClick={onClose} />
 
@@ -140,17 +170,17 @@ export default function ClientDetailsModal({
         initial={{ y: "100%", opacity: 0.5 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: "100%", opacity: 0 }}
-        transition={{ type: "spring", damping: 25, stiffness: 350 }}
-        className="relative bg-white w-full sm:max-w-md max-h-[92vh] sm:max-h-[85vh] rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10"
+        transition={{ type: "spring", damping: 28, stiffness: 380 }}
+        className="relative bg-white w-full sm:max-w-md max-h-[92vh] sm:max-h-[85vh] rounded-t-3xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden z-10"
         dir={isRtl ? "rtl" : "ltr"}
       >
         {/* Grab Handle for mobile swipe feel */}
-        <div className="mx-auto w-12 h-1 bg-slate-200 rounded-full my-3 block sm:hidden" />
+        <div className="mx-auto w-10 h-1 bg-slate-200 rounded-full my-3 block sm:hidden" />
 
         {/* Modal Header */}
         <div className={`px-5 pb-3 pt-2 sm:pt-4 flex items-start justify-between border-b border-slate-100 ${isRtl ? "text-right" : "text-left"}`}>
           <div className="text-left">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <span className="text-[10px] font-semibold text-slate-400">
               {t.clientFile}
             </span>
             <h3 className="text-lg font-bold text-slate-900 leading-tight">
@@ -158,7 +188,7 @@ export default function ClientDetailsModal({
             </h3>
             <div className={`flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1 mt-0.5`}>
               <Phone className="w-3 h-3 text-slate-400" />
-              <span className="text-xs font-semibold text-slate-505 font-mono">
+              <span className="text-xs font-medium text-slate-500">
                 {client.phone}
               </span>
             </div>
@@ -175,14 +205,14 @@ export default function ClientDetailsModal({
         {/* Modal Content Scrollable Area */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5 text-left">
           {/* Main Debt Gauge */}
-          <div className="bg-slate-900 text-white rounded-2xl p-4.5 text-center relative overflow-hidden">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+          <div className="bg-slate-900 text-white rounded-2xl p-4.5 text-center">
+            <span className="text-[10px] text-slate-400 font-semibold">
               {t.dueBalance}
             </span>
             <p
               id="detail-outstanding-debt-display"
-              className={`text-2xl font-extrabold font-mono mt-1 ${
-                stats.debt > 0 ? "text-rose-400 animate-pulse-slow font-black text-3xl" : "text-emerald-400"
+              className={`text-2xl font-extrabold mt-1 ${
+                stats.debt > 0 ? "text-rose-400" : "text-teal-400"
               }`}
             >
               {formatCurrency(stats.debt, currency)}
@@ -190,14 +220,14 @@ export default function ClientDetailsModal({
 
             <div className={`grid grid-cols-2 gap-2 mt-4 pt-3.5 border-t border-slate-800 text-left`}>
               <div>
-                <span className="block text-[9px] text-slate-400 uppercase">{t.totalDelivered}</span>
-                <span className="text-xs font-bold font-mono text-slate-200">
+                <span className="block text-[9px] text-slate-400">{t.totalDelivered}</span>
+                <span className="text-xs font-bold text-slate-200">
                   {formatCurrency(stats.totalDelivered, currency)}
                 </span>
               </div>
               <div>
-                <span className="block text-[9px] text-slate-400 uppercase">{t.recovered}</span>
-                <span className="text-xs font-bold font-mono text-slate-200">
+                <span className="block text-[9px] text-slate-400">{t.recovered}</span>
+                <span className="text-xs font-bold text-slate-200">
                   {formatCurrency(stats.totalPaid, currency)}
                 </span>
               </div>
@@ -205,19 +235,27 @@ export default function ClientDetailsModal({
           </div>
 
           {/* Quick Action Reminders & Payments */}
-          <div className={`grid grid-cols-2 gap-2.5 ${isRtl ? "space-x-reverse" : ""}`}>
+          <div className={`grid grid-cols-2 gap-2.5`}>
+            <button
+              id="duplicate-last-sale-btn"
+              onClick={handleDuplicateLastSale}
+              className="flex items-center justify-center space-x-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 px-3 rounded-xl transition cursor-pointer"
+            >
+              <Copy className="w-4 h-4" />
+              <span>{lang === "ar" ? "تكرار آخر بيع" : "Dupliquer dernière vente"}</span>
+            </button>
             {stats.debt > 0 ? (
               <button
                 id="record-repayment-drawer-btn"
                 onClick={() => setShowRepayForm(!showRepayForm)}
-                className="flex items-center justify-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition cursor-pointer"
+                className="flex items-center justify-center space-x-1.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs py-2.5 px-3 rounded-xl transition cursor-pointer"
               >
-                <DollarSign className="w-4 h-4 text-emerald-300" />
+                <DollarSign className="w-4 h-4" />
                 <span>{t.repayDebt}</span>
               </button>
             ) : (
-              <div className="bg-emerald-50 text-emerald-850 text-[11px] font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center space-x-1 justify-self-stretch border border-emerald-100">
-                <span>{lang === "ar" ? "✅ الحساب خالص ومسدد !" : "✅ Client en règle !"}</span>
+              <div className="bg-teal-50 text-teal-700 text-[11px] font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center">
+                <span>{lang === "ar" ? "الحساب خالص ومسدد !" : "Client en règle !"}</span>
               </div>
             )}
 
@@ -226,12 +264,18 @@ export default function ClientDetailsModal({
               target="_blank"
               rel="noreferrer"
               id="send-whatsapp-reminder-btn"
-              className="flex items-center justify-center space-x-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition text-center"
+              className="flex items-center justify-center space-x-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 px-3 rounded-xl transition text-center"
             >
-              <MessageSquare className="w-4 h-4 text-emerald-400" />
+              <MessageSquare className="w-4 h-4" />
               <span>{t.whatsappReminder}</span>
             </a>
           </div>
+
+          {copiedMessage && (
+            <div className="rounded-xl bg-teal-50 text-teal-700 text-[11px] font-semibold px-3 py-2">
+              {copiedMessage}
+            </div>
+          )}
 
           {/* Form to log single Repayment */}
           {showRepayForm && (
@@ -239,10 +283,10 @@ export default function ClientDetailsModal({
               id="repayment-form-block"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
-              className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl space-y-3"
+              className="bg-teal-50/60 p-4 rounded-xl space-y-3"
             >
-              <h4 className={`text-xs font-bold uppercase text-emerald-800 flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1`}>
-                <TrendingDown className="w-4 h-4 text-emerald-600" />
+              <h4 className={`text-xs font-bold text-teal-800 flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1`}>
+                <TrendingDown className="w-4 h-4" />
                 <span>{t.recordRepayment}</span>
               </h4>
 
@@ -256,9 +300,9 @@ export default function ClientDetailsModal({
                       placeholder={lang === "ar" ? `مبلغ التسديد (الأقصى: ${stats.debt})` : `Montant du versement (Max: ${stats.debt})`}
                       value={repayAmount}
                       onChange={(e) => setRepayAmount(e.target.value)}
-                      className={`w-full bg-white border border-emerald-200 rounded-lg py-2 text-xs font-bold font-mono text-slate-800 outline-none focus:ring-1 focus:ring-emerald-500 ${isRtl ? "pl-12 pr-3" : "pr-12 pl-3"}`}
+                      className={`w-full bg-white border border-teal-200 rounded-lg py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-1 focus:ring-teal-500 ${isRtl ? "pl-12 pr-3" : "pr-12 pl-3"}`}
                     />
-                    <span className={`absolute inset-y-0 ${isRtl ? "left-3.5" : "right-3.5"} flex items-center text-xs font-bold text-slate-400 font-mono`}>
+                    <span className={`absolute inset-y-0 ${isRtl ? "left-3.5" : "right-3.5"} flex items-center text-xs font-semibold text-slate-400`}>
                       {currency}
                     </span>
                   </div>
@@ -269,25 +313,25 @@ export default function ClientDetailsModal({
                       placeholder={t.repaymentNotesPlaceholder}
                       value={repayNotes}
                       onChange={(e) => setRepayNotes(e.target.value)}
-                      className="w-full bg-white border border-emerald-100 rounded-lg py-1.5 px-3 text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+                      className="w-full bg-white border border-teal-100 rounded-lg py-1.5 px-3 text-xs outline-none focus:ring-1 focus:ring-teal-500"
                     />
                   </div>
                 </div>
 
                 {errorMsg && (
-                  <p id="repay-error-msg" className="text-[11px] text-rose-600 font-semibold">{errorMsg}</p>
+                  <p id="repay-error-msg" className="text-[11px] text-rose-600 font-medium">{errorMsg}</p>
                 )}
 
                 {success && (
-                  <p id="repay-success-msg" className="text-[11px] text-emerald-600 font-semibold bg-emerald-50 p-2 rounded">
-                    {lang === "ar" ? "تم تسجيل الدفعة بنجاح ! 🎉" : "Versement enregistré avec succès ! 🎉"}
+                  <p id="repay-success-msg" className="text-[11px] text-teal-700 font-medium bg-teal-100/60 p-2 rounded">
+                    {lang === "ar" ? "تم تسجيل الدفعة بنجاح !" : "Versement enregistré avec succès !"}
                   </p>
                 )}
 
                 <button
                   type="submit"
                   id="submit-repayment-btn"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 rounded-lg cursor-pointer transition"
+                  className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs py-2 rounded-lg cursor-pointer transition"
                 >
                   {t.confirmRepayment}
                 </button>
@@ -295,31 +339,73 @@ export default function ClientDetailsModal({
             </motion.div>
           )}
 
+          {/* Purchase History / Typical Prices */}
+          {recentPurchases.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5">
+                  <ShoppingBag className="w-4 h-4 text-slate-600" />
+                  <h4 className="text-xs font-bold text-slate-700">
+                    {lang === "ar" ? "سجل الأسعار والشراء" : "Historique des prix / habitudes"}
+                  </h4>
+                </div>
+                <span className="text-[10px] font-semibold text-slate-500">
+                  {lang === "ar" ? "متوسط آخر 4 مشتريات" : "Moyenne des 4 derniers achats"}
+                </span>
+              </div>
+
+              <div className="rounded-xl bg-white p-3 text-sm text-slate-700">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">
+                    {lang === "ar" ? "متوسط الشراء" : "Achat moyen"}
+                  </span>
+                  <span className="font-bold text-slate-900">
+                    {formatCurrency(Math.round(averagePurchase), currency)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {recentPurchases.map((purchase) => (
+                  <div key={purchase.id} className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-slate-800">{purchase.description || (lang === "ar" ? "توصيل" : "Livraison")}</span>
+                      <span className="font-bold text-slate-900">{formatCurrency(purchase.totalAmount, currency)}</span>
+                    </div>
+                    <div className="mt-1 text-[10px] text-slate-500">
+                      {formatDate(purchase.date)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Chronological History Timeline */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 text-left">
+            <h4 className="text-xs font-bold text-slate-500 text-left">
               {t.historyTimeline}
             </h4>
 
             {historyItems.length === 0 ? (
-              <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-55 rounded-xl">
+              <p className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl">
                 {t.noTransactionsYet}
               </p>
             ) : (
               <div className={`relative ${isRtl ? "pr-4 border-r-2" : "pl-4 border-l-2"} border-slate-100 space-y-4`}>
                 {historyItems.map((item) => (
-                  <div key={item.id} className="relative group/item text-left">
+                  <div key={item.id} className="relative text-left">
                     {/* Timestamp Dot */}
                     <div
                       className={`absolute ${isRtl ? "-right-[21px]" : "-left-[21px]"} top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                        item.type === "sale" ? "bg-amber-500" : "bg-emerald-500"
+                        item.type === "sale" ? "bg-slate-400" : "bg-teal-500"
                       }`}
                     />
 
                     {/* Timeline Event Content */}
                     <div className="space-y-1 text-left">
                       <div className="flex items-center justify-between text-[10px] text-slate-400">
-                        <span className={`flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1 font-mono font-medium`}>
+                        <span className={`flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1 font-medium`}>
                           <Calendar className="w-3 h-3" />
                           <span>{formatDate(item.date)}</span>
                         </span>
@@ -332,14 +418,14 @@ export default function ClientDetailsModal({
                             {item.title}
                           </p>
                           {item.type === "sale" && (
-                            <div className="text-[10px] text-slate-500 font-mono space-y-0.5 mt-0.5">
+                            <div className="text-[10px] text-slate-500 space-y-0.5 mt-0.5">
                               <div>
                                 {lang === "ar" ? "تم توصيل:" : "Livré:"} {formatCurrency(item.primaryValue, currency)} | {lang === "ar" ? "التسبيق:" : "Acompte:"}{" "}
                                 {formatCurrency(item.secondaryValue, currency)}
                               </div>
                               {item.dueDate && (
                                 <div className="text-slate-400">
-                                  📅 {t.dueDate} : {formatDate(item.dueDate)}
+                                  {t.dueDate} : {formatDate(item.dueDate)}
                                 </div>
                               )}
                             </div>
@@ -348,8 +434,8 @@ export default function ClientDetailsModal({
 
                         <div className="text-right">
                           <span
-                            className={`text-xs font-bold font-mono ${
-                              item.type === "sale" ? "text-slate-800" : "text-emerald-600"
+                            className={`text-xs font-bold ${
+                              item.type === "sale" ? "text-slate-800" : "text-teal-600"
                             }`}
                           >
                             {item.type === "sale" ? "+" : "-"}
@@ -357,12 +443,12 @@ export default function ClientDetailsModal({
                           </span>
 
                           {item.type === "sale" && (
-                            <span className={`block text-[9px] font-mono font-semibold ${
-                              item.balance > 0 ? "text-rose-500" : "text-emerald-500"
+                            <span className={`block text-[9px] font-semibold ${
+                              item.balance > 0 ? "text-rose-500" : "text-teal-500"
                             }`}>
                               {item.balance > 0 
                                 ? `${lang === "ar" ? "دين:" : "Dette:"} ${formatCurrency(item.balance, currency)}`
-                                : `✅ ${lang === "ar" ? "خالص" : "Payé"}`}
+                                : `${lang === "ar" ? "خالص" : "Payé"}`}
                             </span>
                           )}
                         </div>

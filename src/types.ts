@@ -11,6 +11,13 @@ export interface Client {
   notes?: string;
 }
 
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
   clientId: string;
@@ -33,6 +40,7 @@ export interface Repayment {
 export interface BackupData {
   version: number;
   clients: Client[];
+  products: Product[];
   transactions: Transaction[];
   repayments: Repayment[];
   exportDate: string;

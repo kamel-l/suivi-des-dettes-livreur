@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useRef } from "react";
-import { Client, Transaction, Repayment, BackupData } from "../types";
-import { validateBackupData, formatDate } from "../utils";
+import { Client, Product, Transaction, Repayment, BackupData } from "../types";
+import { validateBackupData } from "../utils";
 import {
   ShieldCheck,
   Download,
@@ -15,7 +15,7 @@ import {
   Trash2,
   FileCheck,
   AlertTriangle,
-  RefreshCw,
+  Settings2,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Language, translations } from "../translations";
@@ -24,6 +24,7 @@ interface BackupProps {
   clients: Client[];
   transactions: Transaction[];
   repayments: Repayment[];
+  products: Product[];
   onRestore: (data: BackupData) => void;
   onClearAll: () => void;
   lang: Language;
@@ -40,6 +41,7 @@ export default function BackupSettings({
   clients,
   transactions,
   repayments,
+  products,
   onRestore,
   onClearAll,
   lang,
@@ -59,9 +61,11 @@ export default function BackupSettings({
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
 
+  // Danger zone confirmation
   const [confirmValue, setConfirmValue] = useState<string>("");
   const [showConfirmReset, setShowConfirmReset] = useState<boolean>(false);
 
+  // Credentials security settings states
   const [authChangeActive, setAuthChangeActive] = useState<boolean>(false);
   const [newSettingsUser, setNewSettingsUser] = useState<string>("");
   const [newSettingsPass, setNewSettingsPass] = useState<string>("");
@@ -109,16 +113,19 @@ export default function BackupSettings({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Generate current backup data
   const generateBackupPayload = (): BackupData => {
     return {
-      version: 1,
+      version: 2,
       clients,
+      products,
       transactions,
       repayments,
       exportDate: new Date().toISOString(),
     };
   };
 
+  // 1. Download Backup as File
   const handleDownloadBackup = () => {
     const backup = generateBackupPayload();
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
@@ -132,10 +139,11 @@ export default function BackupSettings({
     downloadAnchor.click();
     downloadAnchor.remove();
 
-    setSuccessMsg(lang === "ar" ? "تم تحميل ملف النسخة الاحتياطية بنجاح!" : "Fichier de sauvegarde téléchargé avec succès !");
+    setSuccessMsg(lang === "ar" ? "تم تحميل ملف النسخة الاحتياطية بنجاح!" : "Fichier de sauvegarde téléchargé avec succès ! Checkez vos téléchargements.");
     setTimeout(() => setSuccessMsg(""), 4000);
   };
 
+  // 2. Copy Backup Code for Easy Msg Sharing (WhatsApp / Notes)
   const handleCopyTextCode = () => {
     const backup = generateBackupPayload();
     const serialized = JSON.stringify(backup);
@@ -143,17 +151,18 @@ export default function BackupSettings({
       .writeText(serialized)
       .then(() => {
         setCopied(true);
-        setSuccessMsg(lang === "ar" ? "تم نسخ رمز النسخ الاحتياطي بنجاح!" : "Code de sauvegarde copié !");
+        setSuccessMsg(lang === "ar" ? "تم نسخ رمز النسخ الاحتياطي بنجاح! يمكنك الآن حفظه بمكان آمن." : "Code de sauvegarde copié dans le presse-papiers ! Envoyez-le vous par SMS ou WhatsApp.");
         setTimeout(() => {
           setCopied(false);
           setSuccessMsg("");
         }, 4000);
       })
       .catch(() => {
-        setErrorMsg(lang === "ar" ? "فشل النسخ التلقائي." : "Impossible de copier automatiquement.");
+        setErrorMsg(lang === "ar" ? "فشل النسخ التلقائي." : "Impossible de copier automatiquement. Sélectionnez le texte manuellement.");
       });
   };
 
+  // 3. Import from File Upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setErrorMsg("");
     setSuccessMsg("");
@@ -167,27 +176,28 @@ export default function BackupSettings({
         if (validateBackupData(parsed)) {
           onRestore(parsed);
           setSuccessMsg(
-            lang === "ar" ? `تم استرجاع البيانات بنجاح! ${parsed.clients.length} زبون.` :
-            `Restauration réussie ! ${parsed.clients.length} clients récupérés.`
+            lang === "ar" ? `تم استرجاع البيانات بنجاح! تم العثور على ${parsed.clients.length} زبون.` :
+            `Restauration réussie ! ${parsed.clients.length} clients et leurs transactions ont été récupérés.`
           );
           if (fileInputRef.current) fileInputRef.current.value = "";
         } else {
-          setErrorMsg(lang === "ar" ? "هيكل ملف النسخ الاحتياطي غير صالح." : "Format de sauvegarde invalide.");
+          setErrorMsg(lang === "ar" ? "هيكل ملف النسخ الاحتياطي غير صالح." : "Le format du fichier de sauvegarde est invalide.");
         }
       } catch {
-        setErrorMsg(lang === "ar" ? "خطأ في قراءة ملف JSON." : "Erreur de lecture du fichier JSON.");
+        setErrorMsg(lang === "ar" ? "خطأ في قراءة ملف JSON." : "Erreur de lecture du fichier JSON. Vérifiez qu'il n'est pas corrompu.");
       }
     };
     reader.readAsText(file);
   };
 
+  // 4. Import from Pasted Text Code
   const handleRestoreFromTextCode = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setSuccessMsg("");
 
     if (!inputTextCode.trim()) {
-      setErrorMsg(lang === "ar" ? "يرجى لصق كود احتياطي صحيح." : "Veuillez coller un code valide.");
+      setErrorMsg(lang === "ar" ? "يرجى لصق كود احتياطي صحيح أولاً." : "Veuillez coller un code de sauvegarde valide d'abord.");
       return;
     }
 
@@ -196,25 +206,26 @@ export default function BackupSettings({
       if (validateBackupData(parsed)) {
         onRestore(parsed);
         setSuccessMsg(
-          lang === "ar" ? `تم الاستيراد بنجاح! ${parsed.clients.length} زبون.` :
-          `Restauration réussie ! ${parsed.clients.length} clients importés.`
+          lang === "ar" ? `تم الاستيراد بنجاح! تم استرجاع ${parsed.clients.length} زبون.` :
+          `Restauration réussie ! ${parsed.clients.length} clients et leurs transactions ont été importés.`
         );
         setInputTextCode("");
       } else {
-        setErrorMsg(lang === "ar" ? "الكود غير صالح." : "Le code collé n'est pas valide.");
+        setErrorMsg(lang === "ar" ? "الكود الملصق لا يوافق هيكل بيانات صالح للتطبيق." : "Le texte collé ne correspond pas à un format de sauvegarde valide.");
       }
     } catch {
-      setErrorMsg(lang === "ar" ? "فشل قراءة الرمز." : "Erreur lors de la lecture du code.");
+      setErrorMsg(lang === "ar" ? "فشل قراءة الرمز. تأكد من نسخ الكود بدقة وبكافة رموزه." : "Erreur lors de la lecture du code. Assurez-vous d'avoir collé l'entièreté du code.");
     }
   };
 
+  // 5. Handle Reset All
   const handleResetData = () => {
     if (confirmValue.toLowerCase() !== "effacer") {
-      setErrorMsg(lang === "ar" ? "يجب كتابة كلمة EFFACER." : "Vous devez saisir le mot correct.");
+      setErrorMsg(lang === "ar" ? "يجب كتابة كلمة EFFACER بشكل صحيح لإتمام المسح." : "Vous devez saisir le mot correct pour réinitialiser.");
       return;
     }
     onClearAll();
-    setSuccessMsg(lang === "ar" ? "تم مسح كافة البيانات." : "Toutes les données ont été effacées.");
+    setSuccessMsg(lang === "ar" ? "تم مسح كافة البيانات المسجلة بنجاح." : "L'ensemble du registre a été effacé avec succès.");
     setConfirmValue("");
     setShowConfirmReset(false);
     setTimeout(() => setSuccessMsg(""), 3000);
@@ -223,44 +234,55 @@ export default function BackupSettings({
   return (
     <motion.div
       id="backup-settings-container"
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-5"
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.15 }}
+      className="space-y-4"
       dir={isRtl ? "rtl" : "ltr"}
     >
-      {/* Sécurité - bannière */}
-      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-3xl p-4 flex items-start space-x-3 text-left">
-        <div className="bg-indigo-100 text-indigo-700 p-2.5 rounded-2xl border border-indigo-200">
-          <ShieldCheck className="w-5 h-5 text-indigo-600" />
+      {/* Informative Security Banner */}
+      <div className={`bg-slate-900 rounded-2xl p-4 flex items-start ${isRtl ? "space-x-reverse" : "space-x-3"} text-white text-left`}>
+        <div className="bg-teal-500/15 text-teal-400 p-2.5 rounded-xl">
+          <ShieldCheck className="w-5 h-5" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-800">{t.securityTagline}</h3>
-          <p className="text-xs text-slate-600 leading-relaxed">{t.securityDesc}</p>
+          <h3 className="text-xs font-bold text-teal-400">
+            {t.securityTagline}
+          </h3>
+          <p className="text-xs text-slate-300 leading-relaxed text-left">
+            {t.securityDesc}
+          </p>
         </div>
       </div>
 
-      {/* Paramètres de rappel et d'échéance */}
-      <div className="bg-white border border-slate-100 rounded-3xl p-4.5 space-y-4 shadow-sm text-left">
-        <div className="flex items-center space-x-2 border-b border-slate-100 pb-2.5">
-          <div className="bg-indigo-100 text-indigo-700 p-1.5 rounded-xl">
-            <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin-slow" />
+      {/* Configuration Section for Reminders and Due Dates */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-4 text-left">
+        <div className={`flex items-center ${isRtl ? "space-x-reverse" : "space-x-2"} border-b border-slate-100 pb-2.5 mb-1`}>
+          <div className="bg-slate-100 text-slate-600 p-1.5 rounded-lg">
+            <Settings2 className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">{t.reminderSettings}</h3>
-            <p className="text-[10px] text-slate-400">{lang === "ar" ? "تعديل مهلة التنبيهات" : "Définir les délais par défaut"}</p>
+            <h3 className="text-xs font-bold text-slate-800">
+              {t.reminderSettings}
+            </h3>
+            <p className="text-[10px] text-slate-400">
+              {lang === "ar" ? "تعديل مهلة التنبيهات الافتراضية ودفع الفواتير" : "Définir les délais par défaut pour les alertes"}
+            </p>
           </div>
         </div>
 
         <div className="space-y-3.5">
-          <div>
-            <label htmlFor="settings-due-offset-select" className="block text-xs font-medium text-slate-600">{t.defaultDueOffsetDays}</label>
+          {/* Default due offset setting */}
+          <div className="space-y-1">
+            <label htmlFor="settings-due-offset-select" className="block text-xs font-medium text-slate-600">
+              {t.defaultDueOffsetDays}
+            </label>
             <select
               id="settings-due-offset-select"
               value={defaultDueOffsetDays}
               onChange={(e) => setDefaultDueOffsetDays(parseInt(e.target.value, 10))}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-300 font-semibold"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2 px-3 text-xs outline-none focus:ring-1 focus:ring-teal-500 font-medium"
             >
               <option value={0}>{t.noDueDate}</option>
               <option value={3}>3 {t.daysDefaultTerm}</option>
@@ -269,13 +291,17 @@ export default function BackupSettings({
               <option value={30}>30 {t.daysDefaultTerm}</option>
             </select>
           </div>
-          <div>
-            <label htmlFor="settings-reminder-offset-select" className="block text-xs font-medium text-slate-600">{t.reminderDaysOffset}</label>
+
+          {/* Reminder offset setting */}
+          <div className="space-y-1">
+            <label htmlFor="settings-reminder-offset-select" className="block text-xs font-medium text-slate-600">
+              {t.reminderDaysOffset}
+            </label>
             <select
               id="settings-reminder-offset-select"
               value={reminderOffsetDays}
               onChange={(e) => setReminderOffsetDays(parseInt(e.target.value, 10))}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-300 font-semibold"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2 px-3 text-xs outline-none focus:ring-1 focus:ring-teal-500 font-medium"
             >
               <option value={1}>1 {t.daysBeforeDue}</option>
               <option value={2}>2 {t.daysBeforeDue}</option>
@@ -286,166 +312,284 @@ export default function BackupSettings({
         </div>
       </div>
 
-      {/* Backup - génération */}
-      <div className="bg-white border border-slate-100 rounded-3xl p-4.5 space-y-4 shadow-sm">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">{t.backupTitle}</h3>
+      {/* Backup generation card */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-4 text-left">
+        <h3 className="text-xs font-bold text-slate-500">
+          {t.backupTitle}
+        </h3>
+
         <div className="grid grid-cols-2 gap-2.5">
+          {/* File download trigger */}
           <button
             onClick={handleDownloadBackup}
             id="download-backup-json-btn"
-            className="flex flex-col items-center justify-center space-y-2 bg-slate-50 border border-slate-200 hover:border-indigo-300 p-4 rounded-2xl transition cursor-pointer"
+            className="flex flex-col items-center justify-center space-y-2 bg-slate-50 hover:bg-slate-100 p-4 rounded-xl transition cursor-pointer"
           >
-            <div className="bg-indigo-100 text-indigo-700 p-2.5 rounded-full">
-              <Download className="w-5 h-5 text-indigo-600" />
+            <div className="bg-teal-100 text-teal-700 p-2.5 rounded-full">
+              <Download className="w-5 h-5" />
             </div>
-            <span className="text-xs font-bold text-slate-700 text-center">{t.backupFileBtn}</span>
+            <span className="text-xs font-semibold text-slate-700 text-center leading-tight">
+              {t.backupFileBtn}
+            </span>
             <span className="text-[9px] text-slate-400 text-center">{t.backupFileDesc}</span>
           </button>
+
+          {/* Code Clipboard trigger */}
           <button
             onClick={handleCopyTextCode}
             id="copy-raw-text-backup-btn"
-            className="flex flex-col items-center justify-center space-y-2 bg-slate-50 border border-slate-200 hover:border-indigo-300 p-4 rounded-2xl transition cursor-pointer"
+            className="flex flex-col items-center justify-center space-y-2 bg-slate-50 hover:bg-slate-100 p-4 rounded-xl transition cursor-pointer"
           >
-            <div className="bg-indigo-100 text-indigo-700 p-2.5 rounded-full">
-              {copied ? <ClipboardCheck className="w-5 h-5 text-emerald-600 animate-bounce" /> : <Copy className="w-5 h-5 text-indigo-600" />}
+            <div className="bg-teal-100 text-teal-700 p-2.5 rounded-full">
+              {copied ? <ClipboardCheck className="w-5 h-5 text-teal-600" /> : <Copy className="w-5 h-5" />}
             </div>
-            <span className="text-xs font-bold text-slate-700 text-center">{t.backupCodeBtn}</span>
+            <span className="text-xs font-semibold text-slate-700 text-center leading-tight">
+              {t.backupCodeBtn}
+            </span>
             <span className="text-[9px] text-slate-400 text-center">{t.backupCodeDesc}</span>
           </button>
         </div>
       </div>
 
-      {/* Restauration */}
-      <div className="bg-white border border-slate-100 rounded-3xl p-4.5 space-y-4 shadow-sm">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">{t.restoreTitle}</h3>
+      {/* Restore generation card */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-4 text-left">
+        <h3 className="text-xs font-bold text-slate-500">
+          {t.restoreTitle}
+        </h3>
 
+        {/* Upload File Input */}
         <div className="space-y-1">
-          <label className="block text-[10px] text-slate-400 font-bold uppercase">{t.importJsonLabel}</label>
-          <div className="flex items-center space-x-2.5">
+          <label className="block text-[10px] text-slate-400 font-semibold">
+            {t.importJsonLabel}
+          </label>
+          <div className={`flex items-center ${isRtl ? "space-x-reverse" : "space-x-2.5"}`}>
             <button
               onClick={() => fileInputRef.current?.click()}
               id="trigger-file-upload-btn"
-              className="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl transition"
+              className="flex items-center space-x-1.5 bg-slate-900 text-white font-semibold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer"
             >
               <Upload className="w-4 h-4" />
               <span>{t.chooseFileBtn}</span>
             </button>
-            <input type="file" ref={fileInputRef} accept=".json" onChange={handleFileUpload} className="hidden" />
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".json"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
             <span className="text-[11px] text-slate-400 truncate">{t.selectJsonHint}</span>
           </div>
         </div>
 
+        {/* Text Area Code Paste Restorer */}
         <form onSubmit={handleRestoreFromTextCode} className="space-y-2 pt-1 border-t border-slate-100">
-          <label htmlFor="restore-code-paste" className="block text-[10px] text-slate-400 font-bold uppercase">{t.restoreCodeLabel}</label>
+          <label htmlFor="restore-code-paste" className="block text-[10px] text-slate-400 font-semibold">
+            {t.restoreCodeLabel}
+          </label>
           <textarea
             id="restore-code-paste"
             placeholder={t.restoreCodePlaceholder}
             value={inputTextCode}
             onChange={(e) => setInputTextCode(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-[11px] font-mono text-slate-800 outline-none focus:ring-2 focus:ring-indigo-300 h-20 resize-none"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-[11px] text-slate-800 outline-none focus:ring-1 focus:ring-teal-500 h-20 resize-none text-left"
           />
           <button
             type="submit"
             id="restore-pasted-data-btn"
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2 rounded-2xl flex items-center justify-center space-x-1 transition"
+            className="w-full bg-slate-900 text-white font-semibold text-xs py-2 rounded-xl flex items-center justify-center space-x-1 hover:bg-slate-800 cursor-pointer transition text-center"
           >
-            <FileCheck className="w-4 h-4 text-indigo-200" />
+            <FileCheck className="w-4 h-4" />
             <span>{t.restorePastedBtn}</span>
           </button>
         </form>
       </div>
 
-      {/* Authentification */}
-      <div className="bg-white border border-slate-100 rounded-3xl p-4.5 space-y-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="bg-indigo-100 text-indigo-700 p-1.5 rounded-xl">
-              <ShieldCheck className="w-4 h-4 text-indigo-600" />
+          {/* Username / Password Security Settings Card */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4.5 space-y-4 text-left">
+        <div className={`flex items-center justify-between ${isRtl ? "flex-row-reverse" : ""}`}>
+          <div className={`flex items-center ${isRtl ? "space-x-reverse" : "space-x-2"}`}>
+            <div className="bg-slate-100 text-slate-600 p-1.5 rounded-lg">
+              <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">{t.authInfo}</h3>
-              <p className="text-[10px] text-slate-400">{lang === "ar" ? "حماية الدخول" : "Protéger l'accès"}</p>
+              <h3 className="text-xs font-bold text-slate-800">
+                {t.authInfo}
+              </h3>
+              <p className="text-[10px] text-slate-400">
+                {lang === "ar" ? "حظر التطفل والدخول غير المصرح" : "Protéger l'accès physique à l'app"}
+              </p>
             </div>
           </div>
-          <span className={`text-[10px] font-bold py-0.5 px-2 rounded-md ${(storedUser && storedPass) ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
-            {(storedUser && storedPass) ? (lang === "ar" ? "✓ نشط" : "✓ Activé") : (lang === "ar" ? "تعطيل" : "Désactivé")}
+
+          <span className={`text-[10px] font-semibold py-0.5 px-2 rounded-md ${
+            (storedUser && storedPass) ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-500"
+          }`}>
+            {(storedUser && storedPass) ? (lang === "ar" ? "نشط" : "Activé") : (lang === "ar" ? "معطّل" : "Désactivé")}
           </span>
         </div>
 
         {(storedUser && storedPass) && !authChangeActive && (
           <div className="flex gap-2 text-xs">
-            <button onClick={() => setAuthChangeActive(true)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-xl font-bold transition text-center">{t.changeAuth}</button>
-            <button onClick={handleDisableAuth} className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 py-2 rounded-xl font-bold transition border border-rose-200 text-center">{t.disableAuth}</button>
+            <button
+              onClick={() => setAuthChangeActive(true)}
+              id="settings-trigger-modify-auth"
+              className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-xl font-semibold cursor-pointer transition text-center"
+            >
+              {t.changeAuth}
+            </button>
+            <button
+              onClick={handleDisableAuth}
+              id="settings-disable-auth-btn"
+              className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 py-2 rounded-xl font-semibold cursor-pointer transition text-center"
+            >
+              {t.disableAuth}
+            </button>
           </div>
         )}
 
         {(!(storedUser && storedPass) || authChangeActive) && (
           <form onSubmit={handleSaveAuthSettings} className="space-y-3 pt-2 border-t border-slate-100">
-            <div className="flex justify-between">
-              <span className="text-xs font-bold text-slate-600">{authChangeActive ? t.changeAuth : t.setupAuthTitle}</span>
+            <div className={`flex items-center justify-between`}>
+              <span className="text-xs font-semibold text-slate-600">
+                {authChangeActive ? t.changeAuth : t.setupAuthTitle}
+              </span>
               {authChangeActive && (
-                <button type="button" onClick={() => { setAuthChangeActive(false); setNewSettingsUser(""); setNewSettingsPass(""); setConfirmSettingsPass(""); }} className="text-xs text-slate-400 hover:text-slate-600">
-                  {lang === "ar" ? "إلغاء" : "Annuler"}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthChangeActive(false);
+                    setNewSettingsUser("");
+                    setNewSettingsPass("");
+                    setConfirmSettingsPass("");
+                  }}
+                  className="text-xs text-slate-400 hover:text-slate-600"
+                >
+                  {lang === "ar" ? "إلغاء التغيير" : "Annuler"}
                 </button>
               )}
             </div>
 
             <div className="space-y-2.5">
-              <div>
-                <label htmlFor="settings-new-user-input" className="block text-[9px] text-slate-400 font-bold uppercase">{t.usernameLabel}</label>
-                <input id="settings-new-user-input" type="text" placeholder={lang === "ar" ? "مثال: سفيان" : "Ex: slimane"} value={newSettingsUser} onChange={(e) => setNewSettingsUser(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-300" />
+              <div className="space-y-1">
+                <label htmlFor="settings-new-user-input" className="block text-[9px] text-slate-400 font-semibold">
+                  {t.usernameLabel}
+                </label>
+                <input
+                  id="settings-new-user-input"
+                  type="text"
+                  placeholder={lang === "ar" ? "مثال: سفيان" : "Ex: slimane"}
+                  value={newSettingsUser}
+                  onChange={(e) => setNewSettingsUser(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-sm font-semibold py-1.5 px-3 rounded-lg outline-none focus:ring-1 focus:ring-teal-500 text-left"
+                />
               </div>
+
               <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label htmlFor="settings-new-pass-input" className="block text-[9px] text-slate-400 font-bold uppercase">{t.passwordLabel}</label>
-                  <input id="settings-new-pass-input" type="password" placeholder="••••" value={newSettingsPass} onChange={(e) => setNewSettingsPass(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 text-center text-sm font-bold tracking-widest outline-none focus:ring-2 focus:ring-indigo-300" />
+                <div className="space-y-1">
+                  <label htmlFor="settings-new-pass-input" className="block text-[9px] text-slate-400 font-semibold">
+                    {t.passwordLabel}
+                  </label>
+                  <input
+                    id="settings-new-pass-input"
+                    type="password"
+                    placeholder="••••"
+                    value={newSettingsPass}
+                    onChange={(e) => setNewSettingsPass(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-center text-sm font-semibold tracking-widest py-1.5 px-2 rounded-lg outline-none focus:ring-1 focus:ring-teal-500"
+                  />
                 </div>
-                <div>
-                  <label htmlFor="settings-confirm-pass-input" className="block text-[9px] text-slate-400 font-bold uppercase">{t.confirmPassword}</label>
-                  <input id="settings-confirm-pass-input" type="password" placeholder="••••" value={confirmSettingsPass} onChange={(e) => setConfirmSettingsPass(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 text-center text-sm font-bold tracking-widest outline-none focus:ring-2 focus:ring-indigo-300" />
+
+                <div className="space-y-1">
+                  <label htmlFor="settings-confirm-pass-input" className="block text-[9px] text-slate-400 font-semibold">
+                    {t.confirmPassword}
+                  </label>
+                  <input
+                    id="settings-confirm-pass-input"
+                    type="password"
+                    placeholder="••••"
+                    value={confirmSettingsPass}
+                    onChange={(e) => setConfirmSettingsPass(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-center text-sm font-semibold tracking-widest py-1.5 px-2 rounded-lg outline-none focus:ring-1 focus:ring-teal-500"
+                  />
                 </div>
               </div>
             </div>
 
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2 rounded-xl transition">{t.saveAuth}</button>
+            <button
+              type="submit"
+              id="settings-confirm-new-auth-btn"
+              className="w-full bg-slate-900 text-white font-semibold text-xs py-2 rounded-xl flex items-center justify-center space-x-1 hover:bg-slate-800 transition cursor-pointer"
+            >
+              <span>{t.saveAuth}</span>
+            </button>
           </form>
         )}
       </div>
 
-      {/* Messages de succès/erreur */}
+      {/* Dynamic Notifications */}
       {successMsg && (
-        <p className="text-xs text-emerald-600 font-semibold bg-emerald-50 border border-emerald-200 p-3 rounded-2xl flex items-start space-x-1.5 animate-pulse-slow">
-          <span>✅</span>
+        <p id="backup-success-toast" className={`text-xs text-teal-700 font-medium bg-teal-50 p-3 rounded-xl flex items-start ${isRtl ? "space-x-reverse" : "space-x-1.5"}`}>
           <span>{successMsg}</span>
         </p>
       )}
+
       {errorMsg && (
-        <p className="text-xs text-rose-500 font-semibold bg-rose-50 border border-rose-200 p-3 rounded-2xl flex items-start space-x-1.5">
-          <span>⚠️</span>
+        <p id="backup-error-toast" className={`text-xs text-rose-600 font-medium bg-rose-50 p-3 rounded-xl flex items-start ${isRtl ? "space-x-reverse" : "space-x-1.5"}`}>
           <span>{errorMsg}</span>
         </p>
       )}
 
-      {/* Zone de danger */}
-      <div className="bg-rose-50 border border-rose-200 rounded-3xl p-4.5 space-y-3">
-        <h4 className="text-xs font-bold text-rose-800 uppercase flex items-center space-x-1.5">
-          <AlertTriangle className="w-4 h-4 text-rose-600" />
+      {/* Danger Reset Zone */}
+      <div className="bg-rose-50 rounded-2xl p-4.5 space-y-3 text-left">
+        <h4 className={`text-xs font-bold text-rose-800 flex items-center ${isRtl ? "space-x-reverse" : ""} space-x-1.5`}>
+          <AlertTriangle className="w-4 h-4" />
           <span>{t.dangerZone}</span>
         </h4>
 
         {!showConfirmReset ? (
-          <button onClick={() => setShowConfirmReset(true)} className="w-full border border-rose-300 bg-white text-rose-700 hover:bg-rose-100 font-bold text-xs py-2 px-3.5 rounded-xl transition">
+          <button
+            onClick={() => setShowConfirmReset(true)}
+            id="trigger-confirm-reset-btn"
+            className="w-full border border-rose-200 bg-white text-rose-700 hover:bg-rose-100 font-semibold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer"
+          >
             {t.clearDatabaseBtn}
           </button>
         ) : (
-          <div className="space-y-3 p-3 bg-white border border-rose-200 rounded-2xl">
-            <p className="text-[11px] text-rose-700 leading-snug">{t.dangerDesc}</p>
+          <div className="space-y-3 p-3 bg-white rounded-xl">
+            <p className="text-[11px] text-rose-700 leading-snug">
+              {t.dangerDesc}
+            </p>
             <div className="space-y-2">
-              <label htmlFor="confirm-delete-phrase" className="block text-[10px] text-slate-600 font-bold">{t.confirmResetLabel}</label>
-              <div className="flex gap-2 text-xs">
-                <input id="confirm-delete-phrase" type="text" placeholder={t.confirmResetPlaceholder} value={confirmValue} onChange={(e) => setConfirmValue(e.target.value)} className="flex-1 bg-slate-50 border border-rose-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-rose-600 outline-none" />
-                <button onClick={handleResetData} className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-xl transition"><Trash2 className="w-4 h-4" /></button>
-                <button type="button" onClick={() => { setShowConfirmReset(false); setConfirmValue(""); }} className="bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 px-3 rounded-xl">{lang === "ar" ? "إلغاء" : "Annuler"}</button>
+              <label htmlFor="confirm-delete-phrase" className="block text-[10px] text-slate-600 font-semibold">
+                {t.confirmResetLabel}
+              </label>
+              <div className={`flex ${isRtl ? "space-x-reverse" : ""} gap-2 text-xs`}>
+                <input
+                  id="confirm-delete-phrase"
+                  type="text"
+                  placeholder={t.confirmResetPlaceholder}
+                  value={confirmValue}
+                  onChange={(e) => setConfirmValue(e.target.value)}
+                  className="flex-1 bg-slate-50 border border-rose-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 outline-none text-left"
+                />
+                <button
+                  onClick={handleResetData}
+                  id="final-reset-data-btn"
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-3 py-1.5 rounded-lg transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowConfirmReset(false);
+                    setConfirmValue("");
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 px-3 rounded-lg"
+                >
+                  {lang === "ar" ? "إلغاء" : "Annuler"}
+                </button>
               </div>
             </div>
           </div>

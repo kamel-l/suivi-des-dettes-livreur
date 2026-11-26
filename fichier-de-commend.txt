@@ -1,0 +1,100 @@
+Comment changer l’icône de votre application
+
+Pour modifier l’icône de votre application, vous devez fournir des images aux bonnes dimensions pour chaque plateforme (Android, iOS, Web). Avec Capacitor, le plus simple est d’utiliser un outil de génération d’icônes à partir d’un fichier source (PNG, SVG) de haute résolution.
+
+1. Préparer une image source
+
+Choisissez ou créez un logo carré, de préférence au format PNG ou SVG.
+
+La résolution minimale recommandée est 1024 × 1024 pixels (pour une excellente qualité sur toutes les tailles).
+
+Assurez‑vous que le fond est transparent (sauf si vous voulez un fond coloré).
+
+2. Utiliser un outil de génération d’icônes
+
+Il existe plusieurs outils en ligne ou en ligne de commande :
+
+Capacitor Assets Generator – officiel, intégré à Capacitor.
+
+Ionic App Resources (similaire).
+
+Générateurs en ligne : AppIcon.co, MakeAppIcon, etc.
+
+Je vous recommande d’utiliser @capacitor/assets car il génère automatiquement les icônes pour Android, iOS et les PWA.
+
+3. Installation et génération avec Capacitor Assets
+a) Installez le package
+bash
+npm install @capacitor/assets --save-dev
+b) Créez un dossier resources à la racine du projet (s’il n’existe pas)
+bash
+mkdir resources
+c) Placez votre image source dans resources/icon.png (ou icon.svg)
+Par exemple, mettez votre logo dans resources/icon.png (c’est le nom par défaut que l’outil recherche).
+Si vous voulez utiliser un autre nom, vous pouvez le spécifier avec l’option --icon.
+
+d) Générez les icônes
+bash
+npx capacitor-assets generate --icon
+Cette commande va :
+
+Redimensionner l’image source dans toutes les tailles requises pour Android (mipmap‑hdpi, ‑xhdpi, etc.) et iOS (AppIcon.appiconset).
+
+Mettre à jour les fichiers de configuration (capacitor.config.json pour la PWA, et les ressources natives).
+
+Remarque : Si vous avez aussi besoin d’un écran de démarrage (splash screen), vous pouvez ajouter l’option --splash et placer une image dans resources/splash.png.
+
+e) Synchronisez avec Capacitor
+Après génération, synchronisez les ressources :
+
+bash
+npx cap copy
+npx cap sync
+4. Vérification des fichiers générés
+Pour Android : les icônes se trouvent dans android/app/src/main/res/mipmap-*.
+
+Pour iOS : les icônes sont dans ios/App/App/Assets.xcassets/AppIcon.appiconset.
+
+Pour PWA : le fichier capacitor.config.json est mis à jour avec assets contenant le chemin vers l’icône.
+
+5. Si vous ne voulez pas utiliser Capacitor Assets
+Vous pouvez aussi remplacer manuellement les fichiers d’icônes :
+
+Android : Créez ou modifiez les images ic_launcher.png dans android/app/src/main/res/mipmap-*. Utilisez des tailles standard (48×48, 72×72, 96×96, 144×144, 192×192, 512×512).
+
+iOS : Remplacez les images dans ios/App/App/Assets.xcassets/AppIcon.appiconset (les noms de fichiers doivent correspondre aux tailles spécifiées dans Contents.json).
+
+Web (PWA) : Modifiez la propriété icons dans votre manifest.json (généralement dans le dossier public ou généré par le script de build). Mettez à jour les chemins vers vos nouvelles icônes.
+
+6. Pour le mode développement (serveur local)
+Si vous utilisez une PWA, après modification du manifest.json, l’icône s’affichera dans l’onglet du navigateur et lors de l’installation sur mobile. Pensez à vider le cache du navigateur.
+
+7. Reconstruisez l’application
+Après ces modifications, effectuez un nouveau build :
+
+bash
+npm run build
+npx cap copy
+Puis ouvrez le projet dans Android Studio ou Xcode pour voir le résultat.
+
+8. Note importante
+Si vous modifiez l’icône après avoir déjà publié sur le Play Store, la nouvelle icône apparaîtra après la mise à jour de l’APK.
+
+Pour la PWA, l’icône est mise à jour instantanément lors du déploiement sur le serveur.
+
+Exemple complet avec Capacitor Assets
+bash
+# 1. Installer le générateur
+npm install @capacitor/assets --save-dev
+
+# 2. Mettre votre icône dans resources/icon.png (1024x1024)
+# 3. Générer les ressources
+npx capacitor-assets generate --icon
+
+# 4. Synchroniser
+npx cap copy
+npx cap sync
+
+# 5. Vérifier les changements
+git status  # (ou regardez les dossiers android/ et ios/)
+Si vous rencontrez des problèmes, assurez‑vous que votre image source est bien carrée et de taille suffisante. L’outil accepte aussi les fichiers SVG.

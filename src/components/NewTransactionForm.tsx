@@ -4,15 +4,27 @@
  */
 
 import React, { useState } from "react";
-import { Client } from "../types";
-import { PlusCircle, UserPlus, CheckCircle2, UserCheck } from "lucide-react";
+import { Client, Product, Transaction } from "../types";
+import { CheckCircle2, UserPlus, UserCheck } from "lucide-react";
 import { formatCurrency } from "../utils";
 import { motion } from "motion/react";
 import { Language, translations } from "../translations";
 
+export interface DuplicateSaleData {
+  clientId?: string;
+  clientName?: string;
+  clientPhone?: string;
+  description?: string;
+  totalAmount?: number;
+  paidAmount?: number;
+  dueDate?: string;
+}
+
 interface NewTransactionProps {
   clients: Client[];
+  products: Product[];
   onAddClient: (name: string, phone: string, notes?: string) => Client;
+  onAddProduct: (name: string, price: number) => Product;
   onAddTransaction: (
     clientId: string,
     description: string,
@@ -24,28 +36,42 @@ interface NewTransactionProps {
   onSuccess: () => void;
   lang: Language;
   defaultDueOffsetDays: number;
+  initialData?: DuplicateSaleData;
 }
 
 export default function NewTransactionForm({
   clients,
+  products,
   onAddClient,
+  onAddProduct,
   onAddTransaction,
   currency,
   onSuccess,
   lang,
   defaultDueOffsetDays,
+  initialData,
 }: NewTransactionProps) {
   const t = translations[lang];
   const isRtl = lang === "ar";
 
-  const [isNewClient, setIsNewClient] = useState<boolean>(false);
-  const [selectedClientId, setSelectedClientId] = useState<string>("");
-  const [newClientName, setNewClientName] = useState<string>("");
-  const [newClientPhone, setNewClientPhone] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
-  const [totalAmount, setTotalAmount] = useState<string>("");
-  const [paidAmount, setPaidAmount] = useState<string>("");
+  const [isNewClient, setIsNewClient] = useState<boolean>(Boolean(initialData?.clientName && !initialData.clientId));
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [newProductName, setNewProductName] = useState<string>("");
+  const [newProductPrice, setNewProductPrice] = useState<string>("");
+  const [cartQuantity, setCartQuantity] = useState<string>("1");
+  const [cartItems, setCartItems] = useState<Array<{ id: string; productId: string; name: string; price: number; quantity: number }>>([]);
+
+  // Client info
+  const [selectedClientId, setSelectedClientId] = useState<string>(initialData?.clientId || "");
+  const [newClientName, setNewClientName] = useState<string>(initialData?.clientName || "");
+  const [newClientPhone, setNewClientPhone] = useState<string>(initialData?.clientPhone || "");
+
+  // Transaction info
+  const [description, setDescription] = useState<string>(initialData?.description || "");
+  const [totalAmount, setTotalAmount] = useState<string>(initialData?.totalAmount?.toString() || "");
+  const [paidAmount, setPaidAmount] = useState<string>(initialData?.paidAmount?.toString() || "");
   const [dueDate, setDueDate] = useState<string>(() => {
+    if (initialData?.dueDate) return initialData.dueDate;
     if (defaultDueOffsetDays > 0) {
       const d = new Date();
       d.setDate(d.getDate() + defaultDueOffsetDays);
@@ -53,16 +79,85 @@ export default function NewTransactionForm({
     }
     return "";
   });
+
+  // Validation feedback
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  const calculatedTotal = parseFloat(totalAmount) || 0;
+  // Derived balance calculation
+  const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const calculatedTotal = cartItems.length > 0 ? cartTotal : parseFloat(totalAmount) || 0;
   const calculatedPaid = parseFloat(paidAmount) || 0;
   const remainingBalance = Math.max(0, calculatedTotal - calculatedPaid);
+
+  const handleAddProductToCatalog = () => {
+    if (!newProductName.trim()) {
+      setErrorMessage(lang === "ar" ? "اسم المنتج مطلوب." : "Le nom du produit est requis.");
+      return;
+    }
+
+    const parsedPrice = parseFloat(newProductPrice);
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      setErrorMessage(lang === "ar" ? "السعر يجب أن يكون أكبر من 0." : "Le prix doit être supérieur à 0.");
+      return;
+    }
+
+    try {
+      const addedProduct = onAddProduct(newProductName.trim(), parsedPrice);
+      setSelectedProductId(addedProduct.id);
+      setDescription(addedProduct.name);
+      setTotalAmount(addedProduct.price.toString());
+      setNewProductName("");
+      setNewProductPrice("");
+      setErrorMessage("");
+    } catch (err: any) {
+      setErrorMessage(err.message || "Erreur d'ajout du produit.");
+    }
+  };
+
+  const handleAddToCart = () => {
+    if (!selectedProductId) {
+      setErrorMessage(lang === "ar" ? "يرجى اختيار منتج أولاً." : "Veuillez sélectionner un produit d'abord.");
+      return;
+    }
+
+    const parsedQty = parseInt(cartQuantity, 10);
+    if (!Number.isFinite(parsedQty) || parsedQty <= 0) {
+      setErrorMessage(lang === "ar" ? "الكمية يجب أن تكون أكبر من 0." : "La quantité doit être supérieure à 0.");
+      return;
+    }
+
+    const product = products.find((item) => item.id === selectedProductId);
+    if (!product) {
+      setErrorMessage(lang === "ar" ? "المنتج غير موجود." : "Le produit est introuvable.");
+      return;
+    }
+
+    setCartItems((prev) => {
+      const existing = prev.find((item) => item.productId === product.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.productId === product.id
+            ? { ...item, quantity: item.quantity + parsedQty }
+            : item
+        );
+      }
+      return [...prev, { id: `cart-${Date.now()}`, productId: product.id, name: product.name, price: product.price, quantity: parsedQty }];
+    });
+
+    setTotalAmount((cartTotal + product.price * parsedQty).toString());
+    setCartQuantity("1");
+    setErrorMessage("");
+  };
+
+  const handleRemoveCartItem = (itemId: string) => {
+    setCartItems((prev) => prev.filter((item) => item.id !== itemId));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
+    // Validation
     let targetClientId = selectedClientId;
 
     if (isNewClient) {
@@ -71,14 +166,18 @@ export default function NewTransactionForm({
         return;
       }
       if (!newClientPhone.trim()) {
-        setErrorMessage(lang === "ar" ? "رقم الهاتف مطلوب." : "Le numéro de téléphone est requis.");
+        setErrorMessage(lang === "ar" ? "رقم الهاتف مطلوب لمتابعة الديون والتنبيهات." : "Le numéro de téléphone est requis pour le suivi des alertes.");
         return;
       }
+
+      // Check duplicate
       const phoneExists = clients.some(c => c.phone.trim() === newClientPhone.trim());
       if (phoneExists) {
         setErrorMessage(t.duplicatePhoneError);
         return;
       }
+
+      // Perform fast inline addition
       try {
         const addedClient = onAddClient(newClientName.trim(), newClientPhone.trim(), "");
         targetClientId = addedClient.id;
@@ -88,37 +187,44 @@ export default function NewTransactionForm({
       }
     } else {
       if (!targetClientId) {
-        setErrorMessage(lang === "ar" ? "يرجى تحديد زبون مسجل." : "Veuillez sélectionner un client existant.");
+        setErrorMessage(lang === "ar" ? "يرجى تحديد زبون مسجل أو إضافة زبون جديد أولاً." : "Veuillez sélectionner un client existant ou en créer un nouveau.");
         return;
       }
     }
 
     if (calculatedTotal <= 0) {
-      setErrorMessage(lang === "ar" ? "يجب أن يكون مبلغ التوصيل أكبر من 0." : "Le montant total doit être supérieur à 0.");
-      return;
-    }
-    if (calculatedPaid > calculatedTotal) {
-      setErrorMessage(lang === "ar" ? "العربون لا يمكن أن يتجاوز المبلغ الإجمالي." : "L'acompte ne peut pas dépasser le total.");
+      setErrorMessage(lang === "ar" ? "يجب أن يكون مبلغ التوصيل أكبر من 0." : "Le montant total de la livraison doit être supérieur à 0.");
       return;
     }
 
-    const defaultDesc = description.trim() || (lang === "ar" ? "توصيل سلع" : "Livraison de marchandises");
+    if (calculatedPaid > calculatedTotal) {
+      setErrorMessage(lang === "ar" ? "العربون المدفوع لا يمكن أن يتجاوز المبلغ الإجمالي." : "L'acompte payé ne peut pas dépasser le montant total de la livraison.");
+      return;
+    }
+
+    const defaultDesc = description.trim() || (lang === "ar" ? "توصيل سلع وبضاعة" : "Livraison de marchandises");
+    const transactionDescription = cartItems.length > 0
+      ? cartItems.map((item) => `${item.name} x${item.quantity}`).join(", ")
+      : defaultDesc;
 
     onAddTransaction(
       targetClientId,
-      defaultDesc,
+      transactionDescription,
       calculatedTotal,
       calculatedPaid,
       dueDate ? new Date(dueDate).toISOString() : undefined
     );
 
-    // Reset form
+    // Clean form states
     setSelectedClientId("");
+    setSelectedProductId("");
     setNewClientName("");
     setNewClientPhone("");
     setDescription("");
     setTotalAmount("");
     setPaidAmount("");
+    setCartItems([]);
+    setCartQuantity("1");
     setDueDate(() => {
       if (defaultDueOffsetDays > 0) {
         const d = new Date();
@@ -128,136 +234,382 @@ export default function NewTransactionForm({
       return "";
     });
     setIsNewClient(false);
+
+    // On Success feedback/navigation callback
     onSuccess();
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      id="new-transaction-container"
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.3 }}
-      className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4"
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.15 }}
+      className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4"
       dir={isRtl ? "rtl" : "ltr"}
     >
-      <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
-        <PlusCircle className="w-5 h-5 text-indigo-500" />
+      <div className="border-b border-slate-100 pb-3 mb-1 text-left">
         <h2 className="text-base font-bold text-slate-800">{t.billDelivery}</h2>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
-        <div className="flex bg-slate-100 p-1 rounded-xl">
+        {/* Toggle Client Selector */}
+        <div className="flex bg-slate-100 p-1 rounded-lg">
           <button
             type="button"
+            id="toggle-exist-client-tab"
             onClick={() => setIsNewClient(false)}
-            className={`flex-1 flex items-center justify-center space-x-1 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition ${
-              !isNewClient ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"
+            className={`flex-1 flex items-center justify-center ${isRtl ? "space-x-reverse" : "space-x-1"} py-1.5 rounded-md text-xs font-semibold transition ${
+              !isNewClient ? "bg-white text-slate-800" : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
+            <UserCheck className="w-3.5 h-3.5" />
             <span>{t.existingClient}</span>
           </button>
           <button
             type="button"
+            id="toggle-new-client-tab"
             onClick={() => setIsNewClient(true)}
-            className={`flex-1 flex items-center justify-center space-x-1 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition ${
-              isNewClient ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"
+            className={`flex-1 flex items-center justify-center ${isRtl ? "space-x-reverse" : "space-x-1"} py-1.5 rounded-md text-xs font-semibold transition ${
+              isNewClient ? "bg-white text-slate-800" : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            <UserPlus className="w-3.5 h-3.5 text-indigo-400" />
+            <UserPlus className="w-3.5 h-3.5" />
             <span>{t.newClient}</span>
           </button>
         </div>
 
+        {/* Client Inputs */}
         {!isNewClient ? (
-          <div>
-            <label htmlFor="client-dropdown" className="block text-xs font-medium text-slate-600">{t.chooseClient}</label>
+          <div className="space-y-1">
+            <label htmlFor="client-dropdown" className="block text-xs font-medium text-slate-600">
+              {lang === "ar" ? "اختر الزبون" : "Sélectionner le client"}
+            </label>
             <select
               id="client-dropdown"
               value={selectedClientId}
-              onChange={(e: { target: { value: any; }; }) => setSelectedClientId(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-300 outline-none transition"
+              onChange={(e) => setSelectedClientId(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2.5 px-3 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
             >
-              
+              <option value="">{t.chooseClient}</option>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} ({c.phone})
                 </option>
               ))}
             </select>
-            {clients.length === 0 && <p className="text-[11px] text-amber-600 mt-1">{t.emptyClientList}</p>}
+            {clients.length === 0 && (
+              <p className="text-[11px] text-amber-600 mt-1">
+                {t.emptyClientList}
+              </p>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-            <div>
-              <label htmlFor="new-client-name" className="block text-xs font-medium text-slate-600">{t.fullName} <span className="text-rose-400">*</span></label>
-              <input id="new-client-name" type="text" placeholder="Ex: Sofiane" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm focus:ring-2 focus:ring-indigo-300 outline-none" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 bg-slate-50 rounded-xl">
+            <div className="space-y-1">
+              <label htmlFor="new-client-name" className="block text-xs font-medium text-slate-600">
+                {t.fullName} <span className="text-rose-500">*</span>
+              </label>
+              <input
+                id="new-client-name"
+                type="text"
+                placeholder={lang === "ar" ? "مثال: سفيان باب الواد" : "Ex: Sofiane Bab El Oued"}
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                className="w-full bg-white border border-slate-200 text-slate-800 rounded-lg py-2 px-3 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+              />
             </div>
-            <div>
-              <label htmlFor="new-client-phone" className="block text-xs font-medium text-slate-600">{t.whatsappNumber} <span className="text-rose-400">*</span></label>
-              <input id="new-client-phone" type="tel" placeholder="Ex: 0551234567" value={newClientPhone} onChange={(e) => setNewClientPhone(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm focus:ring-2 focus:ring-indigo-300 outline-none" />
+            <div className="space-y-1">
+              <label htmlFor="new-client-phone" className="block text-xs font-medium text-slate-600">
+                {t.whatsappNumber} <span className="text-rose-500">*</span>
+              </label>
+              <input
+                id="new-client-phone"
+                type="tel"
+                placeholder={lang === "ar" ? "مثال: 0551234567" : "Ex: 0551234567"}
+                value={newClientPhone}
+                onChange={(e) => setNewClientPhone(e.target.value)}
+                className="w-full bg-white border border-slate-200 text-slate-800 rounded-lg py-2 px-3 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+              />
             </div>
           </div>
         )}
 
-        <div className="space-y-3 pt-2">
-          <div>
-            <label htmlFor="delivery-desc" className="block text-xs font-medium text-slate-600">{t.descOptional}</label>
-            <input id="delivery-desc" type="text"  value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-300 outline-none" />
+        {/* Product Catalog */}
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+          <div className="space-y-1">
+            <label htmlFor="product-select" className="block text-xs font-medium text-slate-600">
+              {lang === "ar" ? "اختر منتجًا من الكتالوج" : "Sélectionner un produit du catalogue"}
+            </label>
+            <select
+              id="product-select"
+              value={selectedProductId}
+              onChange={(e) => setSelectedProductId(e.target.value)}
+              className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl py-2.5 px-3 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+            >
+              <option value="">{lang === "ar" ? "بدون منتج" : "Sans produit"}</option>
+              {products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name} — {product.price} {currency}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div>
-            <label htmlFor="due-date-input" className="block text-xs font-medium text-slate-600">{t.optionalDueDate}</label>
-            <input id="due-date-input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-sm focus:ring-2 focus:ring-indigo-300 outline-none" />
-            <div className="flex flex-wrap gap-1.5 mt-1">
-              {[3, 7, 14, 30].map((days) => (
-                <button key={days} type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() + days); setDueDate(d.toISOString().split("T")[0]); }} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] py-1 px-2.5 rounded-lg border border-slate-200 transition">
-                  {isRtl ? `+${days} ${t.daysCount}` : `+${days} j`}
-                </button>
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <div className="space-y-1">
+              <label htmlFor="cart-quantity" className="block text-xs font-medium text-slate-600">
+                {lang === "ar" ? "الكمية" : "Quantité"}
+              </label>
+              <input
+                id="cart-quantity"
+                type="number"
+                min="1"
+                value={cartQuantity}
+                onChange={(e) => setCartQuantity(e.target.value)}
+                className="w-full bg-white border border-slate-200 text-slate-800 rounded-lg py-2 px-3 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                className="bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm py-2 px-3 rounded-lg transition"
+              >
+                {lang === "ar" ? "إضافة للسلة" : "Ajouter au panier"}
+              </button>
+            </div>
+          </div>
+
+          {cartItems.length > 0 && (
+            <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2.5">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                <span>{lang === "ar" ? "السلة" : "Panier"}</span>
+                <span>{formatCurrency(cartTotal, currency)}</span>
+              </div>
+              {cartItems.map((item) => (
+                <div key={item.id} className="flex items-center justify-between rounded-md bg-slate-50 px-2.5 py-2 text-xs text-slate-700">
+                  <div>
+                    <p className="font-semibold">{item.name}</p>
+                    <p className="text-slate-500">x{item.quantity} · {formatCurrency(item.price * item.quantity, currency)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCartItem(item.id)}
+                    className="text-rose-600 font-semibold"
+                  >
+                    {lang === "ar" ? "حذف" : "Suppr."}
+                  </button>
+                </div>
               ))}
-              <button type="button" onClick={() => setDueDate("")} className="bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold text-[10px] py-1 px-2.5 rounded-lg border border-rose-200 transition">{t.noDueDate}</button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="space-y-1">
+              <label htmlFor="new-product-name" className="block text-xs font-medium text-slate-600">
+                {lang === "ar" ? "منتج جديد" : "Nouveau produit"}
+              </label>
+              <input
+                id="new-product-name"
+                type="text"
+                placeholder={lang === "ar" ? "مثال: قهوة" : "Ex: café"}
+                value={newProductName}
+                onChange={(e) => setNewProductName(e.target.value)}
+                className="w-full bg-white border border-slate-200 text-slate-800 rounded-lg py-2 px-3 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="new-product-price" className="block text-xs font-medium text-slate-600">
+                {lang === "ar" ? "السعر" : "Prix"}
+              </label>
+              <div className="relative">
+                <input
+                  id="new-product-price"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Ex: 1500"
+                  value={newProductPrice}
+                  onChange={(e) => setNewProductPrice(e.target.value)}
+                  className="w-full bg-white border border-slate-200 text-slate-800 rounded-lg py-2 pr-10 pl-3 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+                />
+                <span className="absolute inset-y-0 right-3 flex items-center text-xs font-medium text-slate-400">
+                  {currency}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleAddProductToCatalog}
+            className="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm py-2 rounded-lg transition"
+          >
+            {lang === "ar" ? "إضافة إلى الكتالوج" : "Ajouter au catalogue"}
+          </button>
+        </div>
+
+        {/* Transaction Inputs */}
+        <div className="space-y-3 pt-2">
+          <div className="space-y-1">
+            <label htmlFor="delivery-desc" className="block text-xs font-medium text-slate-600">
+              {t.descOptional}
+            </label>
+            <input
+              id="delivery-desc"
+              type="text"
+              placeholder={t.descPlaceholder}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2.5 px-3 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+            />
+          </div>
+
+          {/* Due date input */}
+          <div className="space-y-1.5">
+            <label htmlFor="due-date-input" className="block text-xs font-medium text-slate-600">
+              {t.optionalDueDate}
+            </label>
+            <input
+              id="due-date-input"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-2 px-3 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+            />
+            {/* Helper buttons for quick select */}
+            <div className={`flex flex-wrap gap-1.5 mt-1`}>
+              {[3, 7, 14, 30].map((days) => {
+                const label = isRtl ? `+${days} ${t.daysCount}` : `+${days} j`;
+                return (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + days);
+                      setDueDate(d.toISOString().split("T")[0]);
+                    }}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[10px] py-1 px-2.5 rounded-lg transition cursor-pointer"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setDueDate("")}
+                className="bg-rose-50 hover:bg-rose-100 text-rose-600 font-medium text-[10px] py-1 px-2.5 rounded-lg transition cursor-pointer"
+              >
+                {t.noDueDate}
+              </button>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3.5">
-            <div>
-              <label htmlFor="total-amount-input" className="block text-xs font-medium text-slate-600">{t.deliveryAmount} <span className="text-rose-400">*</span></label>
+            <div className="space-y-1">
+              <label htmlFor="total-amount-input" className="block text-xs font-medium text-slate-600">
+                {t.deliveryAmount} <span className="text-rose-500">*</span>
+              </label>
               <div className="relative">
-                <input id="total-amount-input" type="number" inputMode="numeric" placeholder="Ex: 15000" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} className={`w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 text-sm font-mono focus:ring-2 focus:ring-indigo-300 outline-none ${isRtl ? "pl-12 pr-3" : "pr-12 pl-3"}`} />
-                <span className={`absolute inset-y-0 ${isRtl ? "left-3" : "right-3"} flex items-center text-xs font-bold text-slate-400`}>{currency}</span>
+                <input
+                  id="total-amount-input"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Ex: 15000"
+                  value={totalAmount}
+                  onChange={(e) => setTotalAmount(e.target.value)}
+                  className={`w-full bg-slate-50 border border-slate-200 text-slate-800 font-semibold rounded-xl py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition ${isRtl ? "pl-12 pr-3" : "pr-12 pl-3"}`}
+                />
+                <span className={`absolute inset-y-0 ${isRtl ? "left-3" : "right-3"} flex items-center text-xs font-medium text-slate-400`}>
+                  {currency}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {[5000, 10000, 15000, 20000].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setTotalAmount(String(value))}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[10px] py-1 px-2 rounded-lg transition cursor-pointer"
+                  >
+                    {value}
+                  </button>
+                ))}
               </div>
             </div>
-            <div>
-              <label htmlFor="paid-amount-input" className="block text-xs font-medium text-slate-600">{t.depositPaid}</label>
+
+            <div className="space-y-1">
+              <label htmlFor="paid-amount-input" className="block text-xs font-medium text-slate-600">
+                {t.depositPaid}
+              </label>
               <div className="relative">
-                <input id="paid-amount-input" type="number" inputMode="numeric" placeholder="Ex: 5000" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} className={`w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 text-sm font-mono focus:ring-2 focus:ring-indigo-300 outline-none ${isRtl ? "pl-12 pr-3" : "pr-12 pl-3"}`} />
-                <span className={`absolute inset-y-0 ${isRtl ? "left-3" : "right-3"} flex items-center text-xs font-bold text-slate-400`}>{currency}</span>
+                <input
+                  id="paid-amount-input"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Ex: 5000"
+                  value={paidAmount}
+                  onChange={(e) => setPaidAmount(e.target.value)}
+                  className={`w-full bg-slate-50 border border-slate-200 text-slate-800 font-semibold rounded-xl py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none transition ${isRtl ? "pl-12 pr-3" : "pr-12 pl-3"}`}
+                />
+                <span className={`absolute inset-y-0 ${isRtl ? "left-3" : "right-3"} flex items-center text-xs font-medium text-slate-400`}>
+                  {currency}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {[0, 2500, 5000, 10000].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPaidAmount(String(value))}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[10px] py-1 px-2 rounded-lg transition cursor-pointer"
+                  >
+                    {value}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </div>
 
+        {/* Dynamic Balance Calculation Box */}
         {(calculatedTotal > 0 || calculatedPaid > 0) && (
-          <div className="p-4 rounded-2xl border flex items-center justify-between bg-indigo-50/50 border-indigo-200">
-            <div>
-              <span className="block text-[10px] text-slate-500 uppercase font-medium">{t.balanceRemaining}</span>
-              <span className="text-xs text-slate-600 font-mono">{totalAmount || 0} - {paidAmount || 0}</span>
-            </div>
-            <div className="text-right">
-              <span className="block text-[10px] text-slate-500 uppercase font-medium">{t.balanceRemaining}</span>
-              <span id="remaining-balance-output" className={`text-base font-extrabold font-mono ${remainingBalance > 0 ? "text-rose-500" : "text-emerald-500"}`}>
-                {formatCurrency(remainingBalance, currency)}
+          <div className="p-4 rounded-xl flex items-center justify-between bg-slate-900 text-white">
+            <div className="text-left">
+              <span className="block text-[10px] text-slate-400 font-medium">
+                {t.balanceRemaining}
+              </span>
+              <span className="text-xs text-slate-400">
+                {totalAmount || 0} - {paidAmount || 0}
               </span>
             </div>
+            <span
+              id="remaining-balance-output"
+              className={`text-base font-extrabold ${
+                remainingBalance > 0 ? "text-rose-400" : "text-teal-400"
+              }`}
+            >
+              {formatCurrency(remainingBalance, currency)}
+            </span>
           </div>
         )}
 
+        {/* Error Feedback Messages */}
         {errorMessage && (
-          <p className="text-xs text-rose-500 font-semibold bg-rose-50 border border-rose-200 p-3 rounded-xl">{errorMessage}</p>
+          <p id="form-error-msg" className={`text-xs text-rose-600 font-medium bg-rose-50 p-3 rounded-lg flex items-start ${isRtl ? "space-x-reverse" : ""} space-x-1`}>
+            <span>{errorMessage}</span>
+          </p>
         )}
 
-        <button type="submit" id="submit-delivery-btn" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm py-3 px-4 rounded-2xl flex items-center justify-center space-x-2 shadow-sm transition">
-          <CheckCircle2 className="w-5 h-5 text-indigo-200" />
+        {/* Action Button */}
+        <button
+          type="submit"
+          id="submit-delivery-btn"
+          className={`w-full bg-teal-600 text-white font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center ${isRtl ? "space-x-reverse" : "space-x-2"} hover:bg-teal-700 cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-teal-300`}
+        >
+          <CheckCircle2 className="w-5 h-5" />
           <span>{t.createAndSave}</span>
         </button>
       </form>

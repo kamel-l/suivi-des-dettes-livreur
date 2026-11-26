@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Design system minimal (visual-only).
+  App logic remains unchanged.
+*/
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] body {
+  background-color: #020617;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .bg-slate-50 {
+  background-color: #020617 !important;
+}
+
+html[data-theme="dark"] .bg-white {
+  background-color: #0f172a !important;
+}
+
+html[data-theme="dark"] .bg-slate-100 {
+  background-color: #111827 !important;
+}
+
+html[data-theme="dark"] .bg-slate-900 {
+  background-color: #020617 !important;
+}
+
+html[data-theme="dark"] .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+html[data-theme="dark"] .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html[data-theme="dark"] .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] .text-slate-400 {
+  color: #64748b !important;
+}
+
+html[data-theme="dark"] .border-slate-200 {
+  border-color: #1e293b !important;
+}
+
+html[data-theme="dark"] .border-slate-100 {
+  border-color: #1e293b !important;
+}
+
+html[data-theme="dark"] .bg-slate-200 {
+  background-color: #1e293b !important;
+}
+
+html[data-theme="dark"] .bg-indigo-50 {
+  background-color: #312e81 !important;
+}
+
+html[data-theme="dark"] .text-indigo-800 {
+  color: #c7d2fe !important;
+}
+
+html[data-theme="dark"] .bg-teal-50 {
+  background-color: #115e59 !important;
+}
+
+html[data-theme="dark"] .text-teal-600 {
+  color: #5eead4 !important;
+}
+
+html[data-theme="dark"] .bg-amber-50 {
+  background-color: #78350f !important;
+}
+
+html[data-theme="dark"] .text-amber-600 {
+  color: #fde68a !important;
+}
+
+html[data-theme="dark"] .bg-rose-50 {
+  background-color: #881337 !important;
+}
+
+html[data-theme="dark"] .text-rose-600 {
+  color: #fda4af !important;
+}
+
+html[data-theme="dark"] .bg-blue-50 {
+  background-color: #172554 !important;
+}
+
+html[data-theme="dark"] .text-blue-600 {
+  color: #93c5fd !important;
+}
+
+@layer components {
+  .app-shell {
+    @apply bg-slate-100 min-h-screen flex justify-center selection:bg-amber-100 font-sans;
+  }
+
+  .app-phone {
+    @apply w-full max-w-md min-h-screen bg-slate-50 flex flex-col relative shadow-xl border-x border-slate-200 pb-20 overflow-hidden;
+  }
+
+  .app-card {
+    @apply bg-white border border-slate-100 rounded-2xl shadow-sm;
+  }
+
+  .app-card-pad {
+    @apply p-4;
+  }
+
+  .app-card-pad-lg {
+    @apply p-5;
+  }
+
+  .app-section-title {
+    @apply text-xs font-bold uppercase tracking-wide text-slate-500;
+  }
+
+  .app-btn {
+    @apply inline-flex items-center justify-center gap-2 font-bold text-xs px-3 py-2 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .app-btn-primary {
+    @apply bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm;
+  }
+
+  .app-btn-ghost {
+    @apply bg-white/0 hover:bg-slate-100 text-slate-700 border border-slate-200;
+  }
+
+  .app-btn-soft {
+    @apply bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-100;
+  }
+
+  .app-btn-danger {
+    @apply bg-rose-600 hover:bg-rose-700 text-white;
+  }
+
+  .app-input {
+    @apply w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-300;
+  }
+
+  .app-select {
+    @apply w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-300 font-semibold;
+  }
+
+  .app-badge {
+    @apply inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase border;
+  }
+
+  .app-badge-overdue {
+    @apply bg-rose-50 text-rose-600 border-rose-200;
+  }
+
+  .app-badge-today {
+    @apply bg-amber-50 text-amber-600 border-amber-200;
+  }
+
+  .app-badge-upcoming {
+    @apply bg-blue-50 text-blue-600 border-blue-200;
+  }
+
+  .app-nav {
+    @apply fixed bottom-0 max-w-md w-full bg-white border-t border-slate-200 px-2 py-2 flex items-center justify-between z-40 shadow-lg;
+  }
+
+  .app-nav-item {
+    @apply flex-1 flex flex-col items-center justify-center space-y-1 py-1.5 px-1 rounded-xl transition cursor-pointer;
+  }
+}
+
